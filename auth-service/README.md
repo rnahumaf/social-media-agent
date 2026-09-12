@@ -36,6 +36,13 @@ O serviço troca o código e obtém o token de longa duração. O desktop consul
 
 Nesta implementação, autorizações expiradas ou revogadas exigem reconexão; renovação automática ainda não foi implementada. Desconectar elimina o token apenas no workspace atual. Cópias anteriores devem ser removidas ou o acesso deve ser revogado nas configurações do Instagram.
 
-O Worker foi implantado e o endpoint de saúde respondeu. O cadastro do segredo e a autorização de uma conta real ainda estão pendentes. Testes locais com fixtures não comprovam aprovação da Meta nem conexão com uma conta real. Antes de distribuir: validar callback HTTPS real, consentimento com as duas permissões, identidade retornada, reinício e transferência do cofre e cancelamento no navegador.
+O Worker foi implantado e o endpoint de saúde respondeu. O segredo Instagram foi cadastrado e a autorização real de @rnaf.me foi validada por consulta autenticada, sem publicação. Testes locais com fixtures não comprovam aprovação da Meta nem conexão com uma conta real. Antes de distribuir: validar callback HTTPS real, consentimento com as duas permissões, identidade retornada, reinício e transferência do cofre e cancelamento no navegador.
 
 Referência: [Login de Empresa no Instagram](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login).
+
+
+## WordPress.com
+
+O mesmo Worker oferece `/wordpress/sessions` e `/wordpress/callback`. Configure `WORDPRESS_CLIENT_ID` como variável pública e `WORDPRESS_CLIENT_SECRET` como Secret. O consentimento solicita `posts media`, sem acesso global. Cada sessão é vinculada ao provedor; um callback ou resgate Instagram não pode consumir uma sessão WordPress. O desktop confirma o site pela API oficial e verifica o vínculo do token ao site, os escopos e a consulta autenticada de posts antes de guardar o token. O conector para hospedagem própria continua usando senha de aplicativo e endpoint `/wp-json/wp/v2`.
+
+Os diagnósticos `node scripts/validate-instagram.cjs NOME` e `node scripts/validate-wordpress.cjs HOST_DO_SITE` exibem a URL de consentimento e somente o resultado resumido. Não salvam tokens. A implementação Node alternativa não oferece WordPress.com e não foi validada contra contas reais; use o Worker implantado neste alfa.

@@ -130,6 +130,9 @@ export const preview: API = {
   cancel: async () => true,
 };
 for (const name of [
+  "wordpressConnect",
+  "wordpressDisconnect",
+  "wordpressTest",
   "instagramConnect",
   "instagramDisconnect",
   "instagramTest",

@@ -949,7 +949,8 @@ function SettingsPanel({
     [password, setPassword] = useState(""),
     [openrouter, setKey] = useState(""),
     [wordpress, setWp] = useState(""),
-    [connecting, setConnecting] = useState(false);
+    [connecting, setConnecting] = useState(false),
+    [wpConnecting, setWpConnecting] = useState(false);
   useEffect(() => {
     setS((previous) => ({
       ...previous,
@@ -961,6 +962,19 @@ function SettingsPanel({
     state.settings.instagramAccount,
     state.settings.instagramUsername,
     state.settings.instagramExpiresAt,
+  ]);
+  useEffect(() => {
+    setS((previous) => ({
+      ...previous,
+      wordpressProvider: state.settings.wordpressProvider,
+      wordpressSiteId: state.settings.wordpressSiteId,
+      wordpressSiteName: state.settings.wordpressSiteName,
+      wordpressUrl: state.settings.wordpressUrl,
+    }));
+  }, [
+    state.settings.wordpressProvider,
+    state.settings.wordpressSiteId,
+    state.settings.wordpressUrl,
   ]);
   return (
     <section className="settings">
@@ -1039,24 +1053,107 @@ function SettingsPanel({
         </label>
       </section>
       <section>
-        <h2>Destinos de publicação</h2>
-        <div className="form-grid">
-          <label>
-            Site WordPress (HTTPS)
-            <input
-              value={s.wordpressUrl}
-              onChange={(e) => setS({ ...s, wordpressUrl: e.target.value })}
-              placeholder="https://seu-site.com"
-            />
-          </label>
-          <label>
-            Usuário WordPress
-            <input
-              value={s.wordpressUser}
-              onChange={(e) => setS({ ...s, wordpressUser: e.target.value })}
-            />
-          </label>
+        <h2>WordPress.com</h2>
+        <p>
+          Entre na sua conta e escolha o site que deseja conectar. Autorize
+          posts e mídia na tela do WordPress.com.
+        </p>
+        {state.settings.wordpressSiteId && (
+          <p>
+            <strong>
+              {state.settings.wordpressSiteName || "Site conectado"}
+            </strong>
+            <br />
+            {state.settings.wordpressUrl}
+          </p>
+        )}
+        {!window.studio && (
+          <p className="small muted">
+            Abra o aplicativo desktop para conectar seu site. Esta prévia não
+            acessa contas.
+          </p>
+        )}
+        {window.studio && !state.unlocked && (
+          <p className="small muted">
+            Desbloqueie o cofre abaixo antes de conectar.
+          </p>
+        )}
+        <div className="actions">
+          <button
+            className="primary"
+            disabled={busy || !window.studio || !state.unlocked}
+            onClick={async () => {
+              setWpConnecting(true);
+              try {
+                await act("wordpressConnect");
+              } finally {
+                setWpConnecting(false);
+              }
+            }}
+          >
+            {wpConnecting
+              ? "Aguardando autorização…"
+              : state.settings.wordpressSiteId
+                ? "Reconectar WordPress.com"
+                : "Conectar WordPress.com"}
+          </button>
+          {wpConnecting && (
+            <button onClick={() => act("cancel")}>Cancelar conexão</button>
+          )}
+          {state.settings.wordpressSiteId && (
+            <>
+              <button
+                disabled={busy || !state.unlocked}
+                onClick={() => act("wordpressTest")}
+              >
+                Verificar site
+              </button>
+              <button
+                disabled={busy || !state.unlocked}
+                onClick={() => act("wordpressDisconnect")}
+              >
+                Desconectar site deste workspace
+              </button>
+            </>
+          )}
         </div>
+        <p className="small muted">
+          Desconectar remove o token deste workspace. Para revogar o acesso de
+          outras cópias, remova a conexão nas configurações do WordPress.com.
+        </p>
+        {!state.settings.wordpressSiteId && (
+          <details>
+            <summary>Meu WordPress usa hospedagem própria</summary>
+            <div className="form-grid">
+              <label>
+                Site WordPress (HTTPS)
+                <input
+                  value={s.wordpressUrl}
+                  onChange={(e) =>
+                    setS({
+                      ...s,
+                      wordpressUrl: e.target.value,
+                      wordpressProvider: "selfhosted",
+                    })
+                  }
+                  placeholder="https://seu-site.com"
+                />
+              </label>
+              <label>
+                Usuário WordPress
+                <input
+                  value={s.wordpressUser}
+                  onChange={(e) =>
+                    setS({ ...s, wordpressUser: e.target.value })
+                  }
+                />
+              </label>
+            </div>
+            <p className="small muted">
+              Informe a senha de aplicativo no cofre e salve as configurações.
+            </p>
+          </details>
+        )}
       </section>
       <section>
         <div className="split">
@@ -1070,6 +1167,11 @@ function SettingsPanel({
         <p>
           Conecte sua conta profissional e autorize o acesso ao perfil e a
           publicação de conteúdos. Sua senha é informada somente no Instagram.
+        </p>
+        <p className="small muted">
+          Neste alfa, peça ao responsável pelo teste um convite e aceite-o nas
+          configurações do Instagram antes de conectar. A conta precisa ser de
+          criador ou empresa; contas pessoais comuns não são compatíveis.
         </p>
         {state.settings.instagramExpiresAt && (
           <p className="small muted">
@@ -1187,7 +1289,7 @@ function SettingsPanel({
               />
             </label>
             <label>
-              Senha de aplicativo WordPress
+              Senha WordPress (hospedagem própria)
               <input
                 type="password"
                 autoComplete="off"

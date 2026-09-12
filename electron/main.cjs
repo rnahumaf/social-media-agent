@@ -15,6 +15,52 @@ const instagramAuth = require("../core/instagram-auth.cjs");
 const authService =
   process.env.STUDIO_AUTH_ORIGIN || require("../core/auth-config.json").origin;
 const actions = {
+  wordpressConnect: async () => {
+    if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
+    controller = new AbortController();
+    const site = await instagramAuth.connect({
+      service: authService,
+      provider: "wordpress",
+      openBrowser: (url) => shell.openExternal(url),
+      signal: controller.signal,
+    });
+    w.storeSecret("wordpressCom", site.token);
+    Object.assign(w.state.settings, {
+      wordpressProvider: "wordpress.com",
+      wordpressSiteId: site.siteId,
+      wordpressSiteName: site.siteName,
+      wordpressUrl: site.siteUrl,
+    });
+    for (const p of w.state.projects)
+      if (p.approval) delete p.approval.wordpress;
+    w.save();
+    return w.snapshot();
+  },
+  wordpressTest: async () => {
+    if (!w.secrets?.wordpressCom)
+      throw Error("Desbloqueie o cofre e conecte o WordPress.com.");
+    const site = await require("../core/wordpress-auth.cjs").profile(
+      w.secrets.wordpressCom,
+      w.state.settings.wordpressSiteId,
+      w.state.settings.wordpressUrl,
+    );
+    if (site.siteUrl !== w.state.settings.wordpressUrl)
+      throw Error("O endereço do site mudou. Reconecte o WordPress.com.");
+    return w.snapshot();
+  },
+  wordpressDisconnect: () => {
+    w.storeSecret("wordpressCom", null);
+    Object.assign(w.state.settings, {
+      wordpressProvider: "selfhosted",
+      wordpressUrl: "",
+      wordpressSiteId: "",
+      wordpressSiteName: "",
+    });
+    for (const p of w.state.projects)
+      if (p.approval) delete p.approval.wordpress;
+    w.save();
+    return w.snapshot();
+  },
   instagramConnect: async () => {
     if (!authService)
       throw Error(
@@ -114,7 +160,9 @@ const actions = {
       for (const p of w.state.projects) {
         if (
           before.settings.wordpressUrl !== settings.wordpressUrl ||
-          before.settings.wordpressUser !== settings.wordpressUser
+          before.settings.wordpressUser !== settings.wordpressUser ||
+          before.settings.wordpressProvider !== settings.wordpressProvider ||
+          before.settings.wordpressSiteId !== settings.wordpressSiteId
         )
           if (p.approval) delete p.approval.wordpress;
         if (
@@ -260,25 +308,17 @@ const actions = {
     if (p.publications.wordpress?.status !== "uncertain")
       throw Error("Não há publicação incerta para reconciliar.");
     const s = w.state.settings;
-    const post = await providers.request(
-      publishers.httpsBase(s.wordpressUrl) + "/wp-json/wp/v2/posts/" + remoteId,
-      {
-        headers: {
-          Authorization:
-            "Basic " +
-            Buffer.from(s.wordpressUser + ":" + w.secrets?.wordpress).toString(
-              "base64",
-            ),
-        },
-      },
-    );
+    const access = publishers.wordpressAccess(w);
+    const post = await providers.request(access.base + "/posts/" + remoteId, {
+      headers: { Authorization: access.authorization },
+    });
     if (post.status !== "publish")
       throw Error("O post informado não está publicado.");
     p.publications.wordpress = {
       ...p.publications.wordpress,
       status: "reconciled",
-      remoteId: post.id,
-      url: post.link,
+      remoteId: post.id || post.ID,
+      url: post.link || post.URL,
     };
     w.save();
     return w.snapshot();

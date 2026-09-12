@@ -25,10 +25,17 @@ Estas etapas pertencem ao responsável por distribuir o aplicativo. Usuários fi
 
 ## Estado da validação
 
-Cadastro e criação do aplicativo foram concluídos. As permissões básicas e de publicação estão prontas para teste no painel. Conexão da conta, geração do token e consulta autenticada ainda não foram validadas; estes passos serão registrados após confirmação no portal e na API.
+Cadastro e criação do aplicativo foram concluídos. As permissões básicas e de publicação estão prontas para teste no painel. O segredo foi cadastrado como Secret no Cloudflare e `/health` confirmou a configuração. O convite de testador para a conta própria foi enviado e apareceu no Instagram. O convite foi aceito; o fluxo OAuth real pelo Cloudflare obteve token de longa duração e a consulta autenticada confirmou @rnaf.me em 12/09/2026. O diagnóstico descartou o token, sem gravá-lo no workspace nem publicar conteúdo. Para manter uma conexão no produto, o usuário abre o desktop, desbloqueia o cofre e usa Conectar Instagram.
 
 Não confunda aplicativo criado, conta autorizada, token válido e publicação bem-sucedida. Cada etapa precisa de uma confirmação própria. O teste de conexão não deve publicar conteúdo.
 
 ## Dados e replicação
 
 Não copie tokens, senhas, emails pessoais ou identificadores de contas reais para exemplos deste documento. Cada usuário autoriza sua própria conta e usa o cofre local. O fluxo OAuth está implementado, mas ainda precisa de implantação HTTPS e validação real. Distribuição ampla depende também dos requisitos de acesso avançado e análise da Meta.
+
+
+## Vincular uma conta própria ao teste alfa
+
+No painel Meta, **Funções do app → Adicionar pessoas → Testador do Instagram**, digite o nome sem @ e aguarde a busca. Selecione o resultado exato da conta antes de clicar em Adicionar. Um chip contendo apenas o texto digitado não comprova que o identificador foi resolvido; no teste, isso fez a submissão retornar sem concluir. A confirmação é a linha da conta com status **Pendente** na lista de testadores.
+
+Na própria conta Instagram, abra **Configurações → Permissões do site → Apps e sites → Convites do testador**. O convite do aplicativo deve aparecer. O responsável aceita os termos apresentados. Só então iniciar o fluxo OAuth do desktop. Sem esse vínculo, a Meta retornou “Função de desenvolvedor é insuficiente”. Estas etapas são de homologação do mantenedor e não compõem o login normal de usuários após aprovação do aplicativo.

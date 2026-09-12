@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const methods = [
+  "wordpressConnect",
+  "wordpressDisconnect",
+  "wordpressTest",
   "instagramConnect",
   "instagramDisconnect",
   "instagramTest",

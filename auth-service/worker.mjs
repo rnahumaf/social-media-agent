@@ -32,13 +32,51 @@ const reply = (body, status = 200, html = false) =>
     },
   );
 async function json(url, options = {}) {
-  const r = await fetch(url, {
-    ...options,
-    redirect: "error",
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!r.ok) throw Error("Meta rejeitou a solicitação.");
-  return r.json();
+  let r;
+  try {
+    r = await fetch(url, {
+      ...options,
+      redirect: "manual",
+      signal: AbortSignal.timeout(30000),
+    });
+  } catch (cause) {
+    const error = Error("Falha de transporte.");
+    error.diagnostic = {
+      category: /redirect/i.test(cause.message)
+        ? "redirect_blocked"
+        : /timeout|abort/i.test(cause.message)
+          ? "timeout"
+          : /not a function|AbortSignal/i.test(cause.message)
+            ? "runtime_api"
+            : "network",
+    };
+    throw error;
+  }
+  if (!r.ok) {
+    const payload = await r.json().catch(() => ({}));
+    const message = String(
+      payload.error?.message || payload.error_message || "",
+    );
+    const category = /secret/i.test(message)
+      ? "client_secret"
+      : /redirect/i.test(message)
+        ? "redirect_uri"
+        : /code/i.test(message)
+          ? "authorization_code"
+          : /app|client/i.test(message)
+            ? "client_id"
+            : "external_api";
+    const error = Error("Meta rejeitou a solicitação.");
+    error.diagnostic = { http: r.status, category };
+    throw error;
+  }
+  try {
+    return await r.json();
+  } catch {
+    const error = Error("Resposta não JSON.");
+    error.diagnostic = { http: r.status, category: "response_format" };
+    throw error;
+  }
 }
 export class AuthSessions {
   constructor(ctx, env) {
@@ -54,14 +92,28 @@ export class AuthSessions {
       if (s.deadline <= now) this.sessions.delete(k);
     for (const [k, s] of this.rates)
       if (s.deadline <= now) this.rates.delete(k);
+    const wordpress = url.pathname.startsWith("/wordpress/");
+    const route = wordpress ? url.pathname.slice(10) : url.pathname;
+    const provider = wordpress ? "wordpress" : "instagram";
     try {
+      if (req.method === "GET" && url.pathname === "/")
+        return reply(
+          "Social Media Agent — alfa. Estúdio editorial local com aprovação humana. Conecte sua conta no aplicativo desktop; cada publicação exige aprovação.",
+          200,
+          true,
+        );
       if (req.method === "GET" && url.pathname === "/health")
         return reply({
           status: "ok",
           instagramConfigured: !!this.env.INSTAGRAM_APP_SECRET,
+          wordpressConfigured: !!this.env.WORDPRESS_CLIENT_SECRET,
         });
-      if (req.method === "POST" && url.pathname === "/sessions") {
-        if (!this.env.INSTAGRAM_APP_SECRET)
+      if (req.method === "POST" && route === "/sessions") {
+        if (
+          !(wordpress
+            ? this.env.WORDPRESS_CLIENT_SECRET
+            : this.env.INSTAGRAM_APP_SECRET)
+        )
           return reply({ error: "Conexão em configuração." }, 503);
         const ip = await hash(req.headers.get("CF-Connecting-IP") || "unknown");
         const rate = this.rates.get(ip) || { count: 0, deadline: now + 60000 };
@@ -91,35 +143,82 @@ export class AuthSessions {
         const id = random();
         this.sessions.set(id, {
           challenge,
+          provider,
           deadline: now + 600000,
           status: "pending",
         });
         return reply(
           {
             id,
-            url:
-              "https://www.instagram.com/oauth/authorize?" +
-              new URLSearchParams({
-                client_id: this.env.INSTAGRAM_APP_ID,
-                redirect_uri: origin + "/oauth/callback",
-                response_type: "code",
-                scope: scopes,
-                state: id,
-                enable_fb_login: "false",
-              }),
+            url: wordpress
+              ? "https://public-api.wordpress.com/oauth2/authorize?" +
+                new URLSearchParams({
+                  client_id: this.env.WORDPRESS_CLIENT_ID,
+                  redirect_uri: origin + "/wordpress/callback",
+                  response_type: "code",
+                  scope: "posts media",
+                  state: id,
+                })
+              : "https://www.instagram.com/oauth/authorize?" +
+                new URLSearchParams({
+                  client_id: this.env.INSTAGRAM_APP_ID,
+                  redirect_uri: origin + "/oauth/callback",
+                  response_type: "code",
+                  scope: scopes,
+                  state: id,
+                  enable_fb_login: "false",
+                }),
           },
           201,
         );
       }
-      if (req.method === "GET" && url.pathname === "/oauth/callback") {
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/oauth/callback" ||
+          url.pathname === "/wordpress/callback")
+      ) {
         const s = this.sessions.get(url.searchParams.get("state"));
-        if (!s || s.status !== "pending")
+        if (!s || s.status !== "pending" || s.provider !== provider)
           return reply("Esta conexão expirou ou já foi utilizada.", 400, true);
         s.status = "exchanging";
+        let stage = "authorization";
         try {
           const code = url.searchParams.get("code");
           if (url.searchParams.has("error") || !code || code.length > 4096)
             throw Error("Negado");
+          if (wordpress) {
+            stage = "wordpress_token";
+            const token = await json(
+              "https://public-api.wordpress.com/oauth2/token",
+              {
+                method: "POST",
+                body: new URLSearchParams({
+                  client_id: this.env.WORDPRESS_CLIENT_ID,
+                  client_secret: this.env.WORDPRESS_CLIENT_SECRET,
+                  grant_type: "authorization_code",
+                  redirect_uri: origin + "/wordpress/callback",
+                  code,
+                }),
+              },
+            );
+            if (
+              !token.access_token ||
+              !/^\d+$/.test(String(token.blog_id)) ||
+              String(token.blog_id) === "0"
+            )
+              throw Error("Site não confirmado.");
+            const granted = String(token.scope || "").split(/[ ,]+/);
+            if (!["posts", "media"].every((p) => granted.includes(p)))
+              throw Error("Permissões incompletas.");
+            s.result = {
+              token: token.access_token,
+              siteId: String(token.blog_id),
+              siteUrl: token.blog_url,
+            };
+            s.status = "ready";
+            return reply("WordPress.com autorizado.", 200, true);
+          }
+          stage = "short_token";
           const response = await json(
             "https://api.instagram.com/oauth/access_token",
             {
@@ -134,6 +233,7 @@ export class AuthSessions {
             },
           );
           const short = response.data?.[0] || response;
+          stage = "permissions";
           const permissions = Array.isArray(short.permissions)
             ? short.permissions
             : String(short.permissions || "").split(",");
@@ -142,6 +242,7 @@ export class AuthSessions {
             !scopes.split(",").every((p) => permissions.includes(p))
           )
             throw Error("Permissões incompletas");
+          stage = "long_token";
           const long = await json(
             "https://graph.instagram.com/access_token?" +
               new URLSearchParams({
@@ -162,18 +263,27 @@ export class AuthSessions {
           };
           s.status = "ready";
           return reply("Autorização recebida.", 200, true);
-        } catch {
+        } catch (error) {
           s.status = "failed";
+          s.diagnostic = error.diagnostic || {
+            category: "network_or_response",
+          };
+          s.failureStage = stage;
           return reply("Não foi possível concluir a autorização.", 400, true);
         }
       }
-      const match = /^\/sessions\/([\w-]{43})$/.exec(url.pathname);
+      const match = /^\/sessions\/([\w-]{43})$/.exec(route);
       if (match && ["GET", "DELETE"].includes(req.method)) {
         const s = this.sessions.get(match[1]),
           verifier = req.headers
             .get("Authorization")
             ?.match(/^Bearer ([\w-]{43})$/)?.[1];
-        if (!s || !verifier || (await hash(verifier)) !== s.challenge)
+        if (
+          !s ||
+          s.provider !== provider ||
+          !verifier ||
+          (await hash(verifier)) !== s.challenge
+        )
           return reply({ error: "Sessão indisponível." }, 404);
         // Recheck after the asynchronous digest to prevent concurrent consumption.
         if (this.sessions.get(match[1]) !== s)
@@ -186,7 +296,11 @@ export class AuthSessions {
           this.sessions.delete(match[1]);
           return reply({ status: "ready", ...s.result });
         }
-        return reply({ status: s.status });
+        return reply({
+          status: s.status,
+          failureStage: s.failureStage,
+          diagnostic: s.diagnostic,
+        });
       }
       return reply({ error: "Rota inexistente." }, 404);
     } catch {

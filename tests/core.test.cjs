@@ -18,6 +18,46 @@ async function fixture(t) {
   });
   return { w, root };
 }
+test("WordPress.com uses the selected site and disables automatic social sharing", async (t) => {
+  const { w } = await fixture(t);
+  const p = w.create("Teste", "Brief", "query");
+  await run(w, p.id);
+  Object.assign(w.state.settings, {
+    demo: false,
+    wordpressProvider: "wordpress.com",
+    wordpressSiteId: "456",
+    wordpressUrl: "https://fixture.wordpress.com",
+  });
+  current(p).demo = false;
+  w.secrets = { wordpressCom: "fixture" };
+  w.approve(p.id, "wordpress");
+  const original = global.fetch;
+  t.after(() => {
+    global.fetch = original;
+  });
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push(url);
+    assert.equal(options.headers.Authorization, "Bearer fixture");
+    assert.equal(JSON.parse(options.body).publicize, false);
+    return Response.json({
+      ID: 123,
+      URL: "https://fixture.wordpress.com/post",
+    });
+  };
+  const result = await wordpress(w, p.id);
+  assert.equal(result.remoteId, 123);
+  assert.equal(result.url, "https://fixture.wordpress.com/post");
+  await wordpress(w, p.id);
+  assert.equal(calls.length, 1);
+  w.revise(p.id, { ...current(p), article: "Revisão" });
+  w.approve(p.id, "wordpress");
+  await wordpress(w, p.id);
+  assert.deepEqual(calls, [
+    "https://public-api.wordpress.com/rest/v1.1/sites/456/posts/new",
+    "https://public-api.wordpress.com/rest/v1.1/sites/456/posts/123",
+  ]);
+});
 test("demo survives a workspace transfer with revisions, conversation and encrypted credentials", async (t) => {
   const { w, root } = await fixture(t);
   const p = w.create(

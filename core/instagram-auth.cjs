@@ -33,8 +33,16 @@ async function profile(token, version = "v23.0") {
     throw Error("A Meta não confirmou a conta profissional.");
   return { id: String(data.user_id), username: data.username };
 }
-async function connect({ service, openBrowser, signal }) {
-  const base = serviceURL(service),
+async function connect({
+  service,
+  openBrowser,
+  signal,
+  provider = "instagram",
+}) {
+  if (!["instagram", "wordpress"].includes(provider))
+    throw Error("Provedor inválido.");
+  const base =
+      serviceURL(service) + (provider === "wordpress" ? "/wordpress" : ""),
     verifier = crypto.randomBytes(32).toString("base64url");
   const session = await request(base + "/sessions", {
     method: "POST",
@@ -45,12 +53,15 @@ async function connect({ service, openBrowser, signal }) {
   if (!/^[\w-]{32,128}$/.test(session.id))
     throw Error("Sessão de conexão inválida.");
   const url = new URL(session.url);
-  if (
-    url.origin !== "https://www.instagram.com" ||
-    url.pathname !== "/oauth/authorize" ||
-    url.searchParams.get("scope") !== scopes.join(",")
-  )
-    throw Error("Autorização inesperada do serviço de conexão.");
+  const valid =
+    provider === "wordpress"
+      ? url.origin === "https://public-api.wordpress.com" &&
+        url.pathname === "/oauth2/authorize" &&
+        url.searchParams.get("scope") === "posts media"
+      : url.origin === "https://www.instagram.com" &&
+        url.pathname === "/oauth/authorize" &&
+        url.searchParams.get("scope") === scopes.join(",");
+  if (!valid) throw Error("Autorização inesperada do serviço de conexão.");
   try {
     await openBrowser(url.href);
     const until = Date.now() + 10 * 60 * 1000;
@@ -62,9 +73,45 @@ async function connect({ service, openBrowser, signal }) {
       });
       if (result.status === "failed")
         throw Error(
-          "A conexão não foi autorizada ou expirou. Tente conectar novamente.",
+          "A conexão não foi concluída. Etapa: " +
+            ([
+              "authorization",
+              "short_token",
+              "permissions",
+              "long_token",
+              "wordpress_token",
+            ].includes(result.failureStage)
+              ? result.failureStage
+              : "autorização") +
+            ". Diagnóstico: " +
+            ([
+              "client_secret",
+              "redirect_uri",
+              "authorization_code",
+              "client_id",
+              "external_api",
+              "network_or_response",
+              "redirect_blocked",
+              "timeout",
+              "runtime_api",
+              "network",
+              "response_format",
+            ].includes(result.diagnostic?.category)
+              ? result.diagnostic.category
+              : "indisponível") +
+            ". Tente conectar novamente.",
         );
       if (result.status === "ready") {
+        if (provider === "wordpress") {
+          if (typeof result.token !== "string")
+            throw Error("Credencial inválida.");
+          const site = await require("./wordpress-auth.cjs").profile(
+            result.token,
+            result.siteId,
+            result.siteUrl,
+          );
+          return { ...site, token: result.token };
+        }
         if (
           typeof result.token !== "string" ||
           !Number.isFinite(result.expiresAt) ||

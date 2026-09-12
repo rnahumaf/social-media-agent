@@ -50,6 +50,9 @@ export type State = {
     models: Record<string, string>;
     wordpressUrl: string;
     wordpressUser: string;
+    wordpressProvider?: "selfhosted" | "wordpress.com";
+    wordpressSiteId?: string;
+    wordpressSiteName?: string;
     instagramAccount: string;
     instagramUsername?: string;
     instagramExpiresAt?: number;

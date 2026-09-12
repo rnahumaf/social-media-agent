@@ -14,6 +14,30 @@ function httpsBase(value) {
     );
   return url.href.replace(/\/$/, "");
 }
+function wordpressAccess(w) {
+  const s = w.state.settings;
+  if (s.wordpressProvider === "wordpress.com") {
+    if (!/^\d+$/.test(s.wordpressSiteId || "") || !w.secrets?.wordpressCom)
+      throw Error("Conecte o WordPress.com e desbloqueie o cofre.");
+    return {
+      base: `https://public-api.wordpress.com/rest/v1.1/sites/${s.wordpressSiteId}`,
+      wordpressCom: true,
+      authorization: `Bearer ${w.secrets.wordpressCom}`,
+    };
+  }
+  if (!s.wordpressUser || !w.secrets?.wordpress)
+    throw Error(
+      "Configure o usuário e desbloqueie a senha de aplicativo WordPress.",
+    );
+  return {
+    base: httpsBase(s.wordpressUrl) + "/wp-json/wp/v2",
+    authorization:
+      "Basic " +
+      Buffer.from(s.wordpressUser + ":" + w.secrets.wordpress).toString(
+        "base64",
+      ),
+  };
+}
 async function wordpress(w, id) {
   const p = w.project(id),
     s = w.state.settings;
@@ -36,10 +60,7 @@ async function wordpress(w, id) {
     throw Error(
       "Este projeto já tem publicação em outro site. Use uma nova pauta para outro destino.",
     );
-  if (!s.wordpressUser || !w.secrets?.wordpress)
-    throw Error(
-      "Configure o usuário e desbloqueie a senha de aplicativo WordPress.",
-    );
+  const access = wordpressAccess(w);
   const { marked } = await import("marked");
   const html = marked.parse(revision.article.replace(/</g, "&lt;"));
   p.publications.wordpress = {
@@ -51,33 +72,35 @@ async function wordpress(w, id) {
   w.save();
   try {
     const post = await request(
-      url +
-        "/wp-json/wp/v2/posts" +
-        (previous?.remoteId ? "/" + previous.remoteId : ""),
+      access.base +
+        "/posts" +
+        (previous?.remoteId
+          ? "/" + previous.remoteId
+          : access.wordpressCom
+            ? "/new"
+            : ""),
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization:
-            "Basic " +
-            Buffer.from(s.wordpressUser + ":" + w.secrets.wordpress).toString(
-              "base64",
-            ),
+          Authorization: access.authorization,
         },
         body: JSON.stringify({
           title: p.title,
           content: html,
           status: "publish",
+          ...(access.wordpressCom ? { publicize: false } : {}),
         }),
       },
     );
-    if (!post.id) throw Error("Resposta sem identificador remoto.");
+    const remoteId = post.id || post.ID;
+    if (!remoteId) throw Error("Resposta sem identificador remoto.");
     p.publications.wordpress = {
       status: "published",
       revision: revision.id,
-      remoteId: post.id,
+      remoteId,
       destination: url,
-      url: post.link,
+      url: post.link || post.URL,
       at: new Date().toISOString(),
     };
     w.save();
@@ -211,4 +234,4 @@ async function instagram(w, id, urls) {
     );
   }
 }
-module.exports = { wordpress, instagram, httpsBase };
+module.exports = { wordpressAccess, wordpress, instagram, httpsBase };

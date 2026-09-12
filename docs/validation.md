@@ -1,22 +1,22 @@
-# Validação do alfa
+# Validação do alfa — 12/09/2026
 
-Verificações locais em Windows, 12/09/2026:
+## Conexões reais
 
-- Testes do núcleo: transferência, histórico, revisões, cofre, senha incorreta, bloqueio de workspace, proteção de backup, cancelamento, renderização JPEG, aprovação, idempotência WordPress e bloqueio após timeout.
-- Contratos externos com respostas simuladas: escolha de modelo OpenRouter, limite de saída, resposta truncada e leitura PubMed com/sem resumo.
-- Smoke do Electron real: preload isolado sem `require` no renderer, criação de pauta, geração demonstrativa, JPEG, exportação e abertura do workspace copiado.
-- O mesmo smoke também passou carregando os módulos e assets do `app.asar` empacotado.
-- Build TypeScript/Vite e auditoria de dependências.
-- Consultas reais sem credenciais: catálogo OpenRouter (445 modelos retornados) e PubMed (seis registros). Isso valida conectividade e leitura, não a geração paga.
-- Inspeção visual da prévia local: estado vazio, criação de pauta, artigo e carrossel; larguras de 360, 768 e 1280 px. Edição humana salvou uma segunda revisão e permaneceu após recarregar.
+O OAuth Instagram foi concluído para @rnaf.me com perfil e publicação. A identidade foi consultada na API oficial após a troca do código pelo Worker HTTPS do Cloudflare.
 
-Limites: chamadas de geração pagas e publicação real não foram executadas; nenhum token do usuário foi solicitado ou utilizado. Testes de conectores usam fixtures. A prévia de navegador demonstra o layout; o smoke desktop usa a persistência e o renderizador reais. Transferência entre duas pastas na mesma máquina não comprova migração Windows ↔ macOS. Assinatura, notarização e operação em contas reais continuam pendentes.
+O WordPress.com foi autorizado para rnahumaf8.wordpress.com no plano gratuito, com posts e media. Foram confirmados o vínculo do token ao site e a consulta autenticada de posts. O endereço HTTP retornado pelo OAuth é normalizado para HTTPS. A consulta de informações gerais do site retorna 403 com esses escopos; a validação usa token-info e listagem de posts.
 
+Os diagnósticos descartaram os tokens ao terminar. Nenhum conteúdo foi criado ou publicado. A conexão pelo aplicativo persiste o token no cofre criptografado após consentimento.
 
-## Login Instagram simplificado — 12/09/2026
+## Verificações locais
 
-Implementados botão de conexão, consentimento no navegador, identidade consultada na Meta, gravação criptografada do token, verificação de conta e desconexão local. Campos manuais de token e ID foram removidos da interface.
+Testes cobrem histórico, transferência, cofre, bloqueio, cancelamento, aprovação por revisão e destino, idempotência e resultado incerto. Fixtures cobrem OAuth dos dois provedores, isolamento de sessões, consumo único e roteamento dos tokens para endpoints oficiais. O smoke Electron usa IPC real, conecta contas fictícias, transfere o cofre e desconecta.
 
-Passaram 21 testes unitários/integrados com fixtures e o teste Electron com IPC real, incluindo OAuth simulado, transferência do cofre e desconexão. O painel foi inspecionado no navegador na largura disponível (~807 px), sem sobreposição no bloco Instagram. O preview deixa claro que não conecta contas reais.
+O painel foi inspecionado na prévia, que mantém conexão real desabilitada. A validação anterior cobriu o fluxo editorial em 360, 768 e 1280 px.
 
-Worker publicado no Cloudflare; `/health` respondeu `ok` e indicou segredo ainda não configurado. Callback cadastrado no painel Meta. Ainda não há autorização validada de @rnaf.me, token real obtido ou publicação de teste. A configuração do segredo aguarda autenticação no painel Cloudflare; a conta de teste aguarda login no Instagram. Validação WordPress.com solicitada para depois do Instagram.
+## Limites
+
+A Meta mantém o aplicativo não publicado. Testadores convidados com conta profissional podem autorizar. O acesso sem convite depende da análise da Meta; o rascunho contém somente instagram_business_basic e instagram_business_content_publish. O painel exige um portfólio empresarial verificado, ainda não disponível nesta configuração. Nenhum pedido foi enviado para análise.
+
+Publicação real e geração paga não foram testadas. Fixtures verificam publicize=false no WordPress.com para impedir compartilhamento automático em outras redes. Assinatura, notarização e transferência entre máquinas Windows e macOS continuam pendentes.
+A versão 0.1.0-alpha.2 passou em 25 testes, build TypeScript/Vite e smoke Electron carregando o app.asar do pacote Windows.

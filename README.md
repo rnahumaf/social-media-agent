@@ -36,7 +36,7 @@ Nenhum conteúdo foi publicado em contas WordPress ou Instagram durante o desenv
 2. Carregue o catálogo, selecione os quatro modelos, revise a memória editorial, desative a demonstração e salve.
 3. Crie uma pauta com termos de busca PubMed, preferencialmente em inglês. A execução envia briefing, fontes e contexto editorial ao OpenRouter e a consulta ao NCBI. Há limite de 5.000 tokens de saída por chamada; não há orçamento monetário rígido neste alfa.
 4. Para WordPress, configure URL HTTPS, usuário e Application Password. Use uma conta com permissões compatíveis com a publicação.
-5. Para Instagram, desbloqueie o cofre e clique em **Conectar Instagram**. A distribuição precisa ter o serviço OAuth habilitado pelo mantenedor; veja [implantação](auth-service/README.md). O usuário autoriza perfil e publicação no Instagram, sem copiar IDs ou tokens. O serviço está implantado no Cloudflare; a ativação do segredo e a validação real estão pendentes. Renovação automática de tokens e hospedagem de imagens ainda não estão implementadas.
+5. Para Instagram, desbloqueie o cofre e clique em **Conectar Instagram**. A distribuição precisa ter o serviço OAuth habilitado pelo mantenedor; veja [implantação](auth-service/README.md). O usuário autoriza perfil e publicação no Instagram, sem copiar IDs ou tokens. O serviço está implantado no Cloudflare e o OAuth Instagram foi validado com uma conta profissional, sem publicação. Renovação automática de tokens e hospedagem de imagens ainda não estão implementadas.
 6. Exporte os JPEGs e hospede-os em URLs HTTPS estáveis, sem recompressão ou alteração. Informe uma URL por card, aprove e solicite a publicação. A confirmação nativa mostra a ação antes do envio.
 
 Mudar o modo de trabalho não torna um material de demonstração publicável: gere uma nova revisão conectada. Conteúdo e revisão por LLM não substituem avaliação humana das evidências.
@@ -69,3 +69,6 @@ O build Windows portátil inclui o runtime. O build macOS deve ser gerado e vali
 O MVP usa um adaptador direto do OpenRouter em `core/providers.cjs`. Pi foi avaliado como base possível; não foi integrado neste alfa. O fluxo fixo dispensa ferramentas de terminal e mantém credenciais de publicação fora dos agentes. Veja [arquitetura e critérios de beta](docs/architecture.md) e [fontes técnicas](docs/references.md).
 
 Antes de beta: validar contas reais e falhas de rede; implantar e validar OAuth e hospedagem; melhorar reconciliação; acrescentar limites de custo, retomada por etapa, edição independente do social, fontes de diretrizes e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
+
+WordPress.com também oferece conexão OAuth pelo botão **Conectar WordPress.com**, com seleção do site e autorização de posts e mídia. Sites com hospedagem própria mantêm a configuração de senha de aplicativo.
+Para entregar a um testador, siga o [guia do alfa](docs/alpha-user-guide.md). O Instagram requer conta profissional e convite de testador enquanto a análise da Meta não for concluída.

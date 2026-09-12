@@ -26,6 +26,9 @@ const stateSchema = z.object({
     models: z.record(z.string()),
     wordpressUrl: z.string(),
     wordpressUser: z.string(),
+    wordpressProvider: z.enum(["selfhosted", "wordpress.com"]).optional(),
+    wordpressSiteId: z.string().optional(),
+    wordpressSiteName: z.string().optional(),
     instagramAccount: z.string(),
     graphVersion: z.string(),
     instagramUsername: z.string().optional(),
@@ -81,7 +84,12 @@ function approvalHash(p, settings, channel) {
     channel,
     destination:
       channel === "wordpress"
-        ? [settings.wordpressUrl, settings.wordpressUser]
+        ? [
+            settings.wordpressUrl,
+            settings.wordpressUser,
+            settings.wordpressProvider || "selfhosted",
+            settings.wordpressSiteId || "",
+          ]
         : channel === "instagram"
           ? [settings.instagramAccount, settings.graphVersion]
           : "export",
@@ -186,7 +194,9 @@ class Workspace {
     if (values) {
       for (const [k, v] of Object.entries(values))
         if (
-          ["openrouter", "wordpress", "instagram"].includes(k) &&
+          ["openrouter", "wordpress", "instagram", "wordpressCom"].includes(
+            k,
+          ) &&
           typeof v === "string" &&
           v
         )

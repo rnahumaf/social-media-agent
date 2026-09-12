@@ -3,7 +3,9 @@ async function request(url, options = {}) {
   const response = await fetch(url, {
     ...options,
     redirect: "error",
-    signal: options.signal || AbortSignal.timeout(90000),
+    signal: options.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(90000)])
+      : AbortSignal.timeout(90000),
   });
   if (!response.ok)
     throw Error(`Serviço externo retornou HTTP ${response.status}.`);
@@ -68,7 +70,11 @@ async function pubmed(query, signal) {
   await new Promise((r) => setTimeout(r, 400));
   const response = await fetch(
     base + "efetch.fcgi?db=pubmed&retmode=xml&id=" + ids.join(","),
-    { signal: signal || AbortSignal.timeout(30000) },
+    {
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
+        : AbortSignal.timeout(30000),
+    },
   );
   if (!response.ok) throw Error("Falha ao consultar registros PubMed.");
   const doc = new XMLParser({ ignoreAttributes: false }).parse(

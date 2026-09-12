@@ -139,7 +139,7 @@ function demoOutput(role, title) {
         "Exemplo de legenda. Conteúdo de demonstração; revise antes de compartilhar. #Comunicação #Ciência",
       cards: [
         {
-          title,
+          title: title.slice(0, 90),
           body: "Uma pauta começa com uma boa pergunta. Demonstração editorial sem evidência clínica.",
         },
         {

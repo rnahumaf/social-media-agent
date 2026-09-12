@@ -175,7 +175,7 @@ const actions = {
     fs.writeFileSync(
       path.join(dir, "revisao.json"),
       JSON.stringify(
-        { revision: r, sources: p.sources, approval: p.approval },
+        { revision: r, sources: r.sources || p.sources, approval: p.approval },
         null,
         2,
       ),

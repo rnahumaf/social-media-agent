@@ -53,6 +53,10 @@ export type State = {
     wordpressProvider?: "selfhosted" | "wordpress.com";
     wordpressSiteId?: string;
     wordpressSiteName?: string;
+    bloggerId?: string;
+    bloggerUrl?: string;
+    bloggerName?: string;
+    bloggerBlogs?: { id: string; name: string; url: string }[];
     instagramAccount: string;
     instagramUsername?: string;
     instagramExpiresAt?: number;

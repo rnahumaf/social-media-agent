@@ -18,7 +18,7 @@ const hash = async (value) =>
 const reply = (body, status = 200, html = false) =>
   new Response(
     html
-      ? `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Instagram</title><h1>${body}</h1><p>Volte ao Social Media Agent.</p></html>`
+      ? `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Social Media Agent</title><h1>${body}</h1><p>Volte ao Social Media Agent.</p></html>`
       : JSON.stringify(body),
     {
       status,
@@ -93,8 +93,17 @@ export class AuthSessions {
     for (const [k, s] of this.rates)
       if (s.deadline <= now) this.rates.delete(k);
     const wordpress = url.pathname.startsWith("/wordpress/");
-    const route = wordpress ? url.pathname.slice(10) : url.pathname;
-    const provider = wordpress ? "wordpress" : "instagram";
+    const blogger = url.pathname.startsWith("/blogger/");
+    const route = wordpress
+      ? url.pathname.slice(10)
+      : blogger
+        ? url.pathname.slice(8)
+        : url.pathname;
+    const provider = wordpress
+      ? "wordpress"
+      : blogger
+        ? "blogger"
+        : "instagram";
     try {
       if (req.method === "GET" && url.pathname === "/")
         return reply(
@@ -107,12 +116,15 @@ export class AuthSessions {
           status: "ok",
           instagramConfigured: !!this.env.INSTAGRAM_APP_SECRET,
           wordpressConfigured: !!this.env.WORDPRESS_CLIENT_SECRET,
+          bloggerConfigured: !!this.env.GOOGLE_CLIENT_SECRET,
         });
       if (req.method === "POST" && route === "/sessions") {
         if (
           !(wordpress
             ? this.env.WORDPRESS_CLIENT_SECRET
-            : this.env.INSTAGRAM_APP_SECRET)
+            : blogger
+              ? this.env.GOOGLE_CLIENT_SECRET
+              : this.env.INSTAGRAM_APP_SECRET)
         )
           return reply({ error: "Conexão em configuração." }, 503);
         const ip = await hash(req.headers.get("CF-Connecting-IP") || "unknown");
@@ -150,24 +162,35 @@ export class AuthSessions {
         return reply(
           {
             id,
-            url: wordpress
-              ? "https://public-api.wordpress.com/oauth2/authorize?" +
+            url: blogger
+              ? "https://accounts.google.com/o/oauth2/v2/auth?" +
                 new URLSearchParams({
-                  client_id: this.env.WORDPRESS_CLIENT_ID,
-                  redirect_uri: origin + "/wordpress/callback",
+                  client_id: this.env.GOOGLE_CLIENT_ID,
+                  redirect_uri: origin + "/blogger/callback",
                   response_type: "code",
-                  scope: "posts media",
+                  scope: "https://www.googleapis.com/auth/blogger",
+                  access_type: "offline",
+                  prompt: "consent select_account",
                   state: id,
                 })
-              : "https://www.instagram.com/oauth/authorize?" +
-                new URLSearchParams({
-                  client_id: this.env.INSTAGRAM_APP_ID,
-                  redirect_uri: origin + "/oauth/callback",
-                  response_type: "code",
-                  scope: scopes,
-                  state: id,
-                  enable_fb_login: "false",
-                }),
+              : wordpress
+                ? "https://public-api.wordpress.com/oauth2/authorize?" +
+                  new URLSearchParams({
+                    client_id: this.env.WORDPRESS_CLIENT_ID,
+                    redirect_uri: origin + "/wordpress/callback",
+                    response_type: "code",
+                    scope: "posts media",
+                    state: id,
+                  })
+                : "https://www.instagram.com/oauth/authorize?" +
+                  new URLSearchParams({
+                    client_id: this.env.INSTAGRAM_APP_ID,
+                    redirect_uri: origin + "/oauth/callback",
+                    response_type: "code",
+                    scope: scopes,
+                    state: id,
+                    enable_fb_login: "false",
+                  }),
           },
           201,
         );
@@ -175,7 +198,8 @@ export class AuthSessions {
       if (
         req.method === "GET" &&
         (url.pathname === "/oauth/callback" ||
-          url.pathname === "/wordpress/callback")
+          url.pathname === "/wordpress/callback" ||
+          url.pathname === "/blogger/callback")
       ) {
         const s = this.sessions.get(url.searchParams.get("state"));
         if (!s || s.status !== "pending" || s.provider !== provider)
@@ -186,6 +210,36 @@ export class AuthSessions {
           const code = url.searchParams.get("code");
           if (url.searchParams.has("error") || !code || code.length > 4096)
             throw Error("Negado");
+          if (blogger) {
+            stage = "blogger_token";
+            const token = await json("https://oauth2.googleapis.com/token", {
+              method: "POST",
+              body: new URLSearchParams({
+                client_id: this.env.GOOGLE_CLIENT_ID,
+                client_secret: this.env.GOOGLE_CLIENT_SECRET,
+                grant_type: "authorization_code",
+                redirect_uri: origin + "/blogger/callback",
+                code,
+              }),
+            });
+            if (
+              !token.access_token ||
+              !token.refresh_token ||
+              !Number.isFinite(token.expires_in) ||
+              token.expires_in <= 0 ||
+              !String(token.scope)
+                .split(" ")
+                .includes("https://www.googleapis.com/auth/blogger")
+            )
+              throw Error("Permissões incompletas.");
+            s.result = {
+              token: token.access_token,
+              refreshToken: token.refresh_token,
+              expiresAt: Date.now() + token.expires_in * 1000,
+            };
+            s.status = "ready";
+            return reply("Blogger autorizado.", 200, true);
+          }
           if (wordpress) {
             stage = "wordpress_token";
             const token = await json(
@@ -271,6 +325,37 @@ export class AuthSessions {
           s.failureStage = stage;
           return reply("Não foi possível concluir a autorização.", 400, true);
         }
+      }
+      if (blogger && route === "/refresh" && req.method === "POST") {
+        const refreshToken = req.headers
+          .get("Authorization")
+          ?.match(/^Bearer ([^\s]{20,4096})$/)?.[1];
+        if (!refreshToken || !this.env.GOOGLE_CLIENT_SECRET)
+          return reply({ error: "Reconecte o Blogger." }, 401);
+        const ip = await hash(req.headers.get("CF-Connecting-IP") || "unknown");
+        const rate = this.rates.get(ip) || { count: 0, deadline: now + 60000 };
+        rate.count++;
+        this.rates.set(ip, rate);
+        if (rate.count > 10) return reply({ error: "Tente mais tarde." }, 429);
+        const token = await json("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          body: new URLSearchParams({
+            client_id: this.env.GOOGLE_CLIENT_ID,
+            client_secret: this.env.GOOGLE_CLIENT_SECRET,
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+          }),
+        });
+        if (
+          !token.access_token ||
+          !Number.isFinite(token.expires_in) ||
+          token.expires_in <= 0
+        )
+          return reply({ error: "Reconecte o Blogger." }, 401);
+        return reply({
+          token: token.access_token,
+          expiresAt: Date.now() + token.expires_in * 1000,
+        });
       }
       const match = /^\/sessions\/([\w-]{43})$/.exec(route);
       if (match && ["GET", "DELETE"].includes(req.method)) {

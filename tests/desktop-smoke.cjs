@@ -12,15 +12,33 @@ const realFetch = global.fetch;
 let instagramOpened = false;
 shell.openExternal = async (url) => {
   assert.ok(
-    ["https://www.instagram.com", "https://public-api.wordpress.com"].includes(
-      new URL(url).origin,
-    ),
+    [
+      "https://www.instagram.com",
+      "https://public-api.wordpress.com",
+      "https://accounts.google.com",
+    ].includes(new URL(url).origin),
   );
   instagramOpened = true;
 };
 global.fetch = async (url, options = {}) => {
   const u = new URL(url);
   if (u.hostname === "social-media-agent-auth-alpha.rnahumaf.workers.dev") {
+    if (u.pathname.startsWith("/blogger/"))
+      return Response.json(
+        u.pathname === "/blogger/sessions"
+          ? {
+              id: "b".repeat(43),
+              url: "https://accounts.google.com/o/oauth2/v2/auth?scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fblogger",
+            }
+          : options.method === "DELETE"
+            ? { status: "cancelled" }
+            : {
+                status: "ready",
+                token: "blogger-fixture-token",
+                refreshToken: "blogger-fixture-refresh",
+                expiresAt: Date.now() + 3600000,
+              },
+      );
     if (u.pathname.startsWith("/wordpress/"))
       return Response.json(
         u.pathname === "/wordpress/sessions"
@@ -52,6 +70,21 @@ global.fetch = async (url, options = {}) => {
           },
     );
   }
+  if (u.hostname === "www.googleapis.com")
+    return Response.json({
+      items: [
+        {
+          id: "789",
+          name: "Fixture Blogger",
+          url: "http://fixture.blogspot.com/",
+        },
+        {
+          id: "790",
+          name: "Other Fixture",
+          url: "http://other-fixture.blogspot.com/",
+        },
+      ],
+    });
   if (u.hostname === "graph.instagram.com")
     return Response.json({ user_id: "123", username: "desktop_fixture" });
   if (u.hostname === "public-api.wordpress.com")
@@ -89,6 +122,13 @@ app.whenReady().then(async () => {
     assert.equal(connected.settings.wordpressSiteId, "456");
     assert.ok(!JSON.stringify(connected).includes("wordpress-fixture-token"));
     await call("wordpressTest");
+    connected = await call("bloggerConnect");
+    assert.equal(connected.settings.bloggerId, "");
+    assert.equal(connected.settings.bloggerBlogs.length, 2);
+    assert.ok(!JSON.stringify(connected).includes("blogger-fixture-token"));
+    connected = await call("bloggerSelect", { id: "789" });
+    assert.equal(connected.settings.bloggerUrl, "https://fixture.blogspot.com");
+    await call("bloggerTest");
     let state = await call("create", {
       title: "Fixture editorial",
       brief: "Somente teste",
@@ -114,12 +154,16 @@ app.whenReady().then(async () => {
     assert.equal(state.projects[0].id, id);
     assert.equal(state.projects[0].revisions.length, 1);
     await call("vault", { password: "desktop-fixture-password" });
+    await call("bloggerTest");
+    state = await call("bloggerDisconnect");
+    assert.equal(state.settings.bloggerId, "");
+    await assert.rejects(() => call("bloggerTest"));
     state = await call("instagramDisconnect");
     assert.equal(state.settings.instagramAccount, "");
     state = await call("wordpressDisconnect");
     assert.equal(state.settings.wordpressSiteId, "");
     console.log(
-      "Desktop smoke passed: isolated preload, pipeline, JPEG, export, transferred workspace and mocked Instagram/WordPress OAuth IPC.",
+      "Desktop smoke passed: isolated preload, pipeline, JPEG, export, transferred workspace and mocked Instagram/WordPress/Blogger OAuth IPC.",
     );
     app.quit();
   } catch (error) {

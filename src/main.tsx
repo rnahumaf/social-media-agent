@@ -99,6 +99,8 @@ function App() {
           setMobile(false);
         }
       } else if (result === true) setNotice("Operação concluída.");
+      if (["bloggerTest", "wordpressTest", "instagramTest"].includes(name))
+        setNotice("Conexão verificada com sucesso.");
       return result;
     } catch (e) {
       setNotice((e as Error).message);
@@ -587,66 +589,74 @@ function App() {
                           {m.content}
                         </pre>
                       ))}
-                    {["export", "wordpress", "instagram"].map((channel) => (
-                      <div className="approval-row" key={channel}>
-                        <div>
-                          <h3>
-                            {channel === "export"
-                              ? "Exportação local"
-                              : channel === "wordpress"
-                                ? "WordPress"
-                                : "Instagram"}
-                          </h3>
-                          <p>
-                            {channel === "export"
-                              ? "Markdown, legenda, JPEGs e fontes"
-                              : channel === "wordpress"
-                                ? state?.settings.wordpressUrl ||
-                                  "Configure o site em Modelos e conexões"
-                                : state?.settings.instagramAccount ||
-                                  "Configure a conta profissional"}
-                          </p>
-                          {p.publications[channel] && (
-                            <span className="tag">
-                              {labels[p.publications[channel].status] ||
-                                p.publications[channel].status}{" "}
-                              {p.publications[channel].remoteId &&
-                                `• ID ${p.publications[channel].remoteId}`}
-                            </span>
-                          )}
+                    {["export", "wordpress", "blogger", "instagram"].map(
+                      (channel) => (
+                        <div className="approval-row" key={channel}>
+                          <div>
+                            <h3>
+                              {channel === "export"
+                                ? "Exportação local"
+                                : channel === "wordpress"
+                                  ? "WordPress"
+                                  : channel === "blogger"
+                                    ? "Blogger"
+                                    : "Instagram"}
+                            </h3>
+                            <p>
+                              {channel === "export"
+                                ? "Markdown, legenda, JPEGs e fontes"
+                                : channel === "wordpress"
+                                  ? state?.settings.wordpressUrl ||
+                                    "Configure o site em Modelos e conexões"
+                                  : channel === "blogger"
+                                    ? state?.settings.bloggerUrl ||
+                                      "Conecte e escolha um blog"
+                                    : state?.settings.instagramUsername ||
+                                      state?.settings.instagramAccount ||
+                                      "Configure a conta profissional"}
+                            </p>
+                            {p.publications[channel] && (
+                              <span className="tag">
+                                {labels[p.publications[channel].status] ||
+                                  p.publications[channel].status}{" "}
+                                {p.publications[channel].remoteId &&
+                                  `• ID ${p.publications[channel].remoteId}`}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            disabled={busy || !r || dirty}
+                            onClick={() => act("approve", { id, channel })}
+                          >
+                            {p.approval?.[channel]
+                              ? "Reafirmar aprovação"
+                              : "Aprovar revisão"}
+                          </button>
+                          <button
+                            disabled={
+                              busy || !r || dirty || !p.approval?.[channel]
+                            }
+                            onClick={() =>
+                              act(channel === "export" ? "export" : "publish", {
+                                id,
+                                channel,
+                                urls: urls
+                                  .split("\n")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              })
+                            }
+                          >
+                            {channel === "export" ? (
+                              <Download size={16} />
+                            ) : (
+                              <ArrowRight size={16} />
+                            )}{" "}
+                            {channel === "export" ? "Exportar" : "Publicar"}
+                          </button>
                         </div>
-                        <button
-                          disabled={busy || !r || dirty}
-                          onClick={() => act("approve", { id, channel })}
-                        >
-                          {p.approval?.[channel]
-                            ? "Reafirmar aprovação"
-                            : "Aprovar revisão"}
-                        </button>
-                        <button
-                          disabled={
-                            busy || !r || dirty || !p.approval?.[channel]
-                          }
-                          onClick={() =>
-                            act(channel === "export" ? "export" : "publish", {
-                              id,
-                              channel,
-                              urls: urls
-                                .split("\n")
-                                .map((s) => s.trim())
-                                .filter(Boolean),
-                            })
-                          }
-                        >
-                          {channel === "export" ? (
-                            <Download size={16} />
-                          ) : (
-                            <ArrowRight size={16} />
-                          )}{" "}
-                          {channel === "export" ? "Exportar" : "Publicar"}
-                        </button>
-                      </div>
-                    ))}
+                      ),
+                    )}
                     <label>
                       URLs públicas dos JPEGs para Instagram (uma por linha)
                       <textarea
@@ -656,10 +666,9 @@ function App() {
                       />
                     </label>
                     <p className="small muted">
-                      Integração Instagram experimental por token. Exporte os
-                      JPEGs, hospede os arquivos sem alterá-los e informe as
-                      URLs na ordem dos cards. OAuth simplificado ainda não está
-                      disponível.
+                      Integração Instagram experimental. Exporte os JPEGs,
+                      hospede os arquivos sem alterá-los e informe as URLs na
+                      ordem dos cards. Conecte sua conta em Modelos e conexões.
                     </p>
                   </div>
                 )}
@@ -950,7 +959,8 @@ function SettingsPanel({
     [openrouter, setKey] = useState(""),
     [wordpress, setWp] = useState(""),
     [connecting, setConnecting] = useState(false),
-    [wpConnecting, setWpConnecting] = useState(false);
+    [wpConnecting, setWpConnecting] = useState(false),
+    [bloggerConnecting, setBloggerConnecting] = useState(false);
   useEffect(() => {
     setS((previous) => ({
       ...previous,
@@ -975,6 +985,20 @@ function SettingsPanel({
     state.settings.wordpressProvider,
     state.settings.wordpressSiteId,
     state.settings.wordpressUrl,
+  ]);
+  useEffect(() => {
+    setS((previous) => ({
+      ...previous,
+      bloggerId: state.settings.bloggerId,
+      bloggerUrl: state.settings.bloggerUrl,
+      bloggerName: state.settings.bloggerName,
+      bloggerBlogs: state.settings.bloggerBlogs,
+    }));
+  }, [
+    state.settings.bloggerId,
+    state.settings.bloggerUrl,
+    state.settings.bloggerName,
+    state.settings.bloggerBlogs,
   ]);
   return (
     <section className="settings">
@@ -1051,6 +1075,99 @@ function SettingsPanel({
             onChange={(e) => setMemory(e.target.value)}
           />
         </label>
+      </section>
+      <section>
+        <div className="split">
+          <h2>Blogger</h2>
+          <span className="tag">
+            {state.settings.bloggerId ? "Conectado" : "Não conectado"}
+          </span>
+        </div>
+        <p>
+          Entre com Google para conectar seu blog. A autorização permite
+          gerenciar o Blogger; cada publicação no aplicativo exige sua
+          aprovação.
+        </p>
+        {state.settings.bloggerUrl && (
+          <p>
+            {state.settings.bloggerName} — {state.settings.bloggerUrl}
+          </p>
+        )}
+        {!!state.settings.bloggerBlogs?.length && (
+          <label>
+            Blog de destino
+            <select
+              disabled={busy || !state.unlocked}
+              value={state.settings.bloggerId || ""}
+              onChange={(e) => act("bloggerSelect", { id: e.target.value })}
+            >
+              <option value="" disabled>
+                Escolha um blog
+              </option>
+              {state.settings.bloggerBlogs.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} — {b.url}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {!window.studio ? (
+          <p className="small muted">
+            Abra o aplicativo desktop para conectar seu blog. Esta prévia não
+            acessa contas.
+          </p>
+        ) : (
+          !state.unlocked && (
+            <p className="small muted">
+              Desbloqueie o cofre abaixo para conectar.
+            </p>
+          )
+        )}
+        <div className="actions">
+          <button
+            disabled={busy || !state.unlocked || !window.studio}
+            onClick={async () => {
+              setBloggerConnecting(true);
+              try {
+                await act("bloggerConnect");
+              } finally {
+                setBloggerConnecting(false);
+              }
+            }}
+          >
+            {bloggerConnecting
+              ? "Aguardando Google…"
+              : state.settings.bloggerBlogs?.length
+                ? "Reconectar Blogger"
+                : "Conectar Blogger com Google"}
+          </button>
+          {bloggerConnecting && (
+            <button onClick={() => act("cancel")}>Cancelar conexão</button>
+          )}
+          {state.settings.bloggerId && (
+            <button
+              disabled={busy || !state.unlocked}
+              onClick={() => act("bloggerTest")}
+            >
+              Verificar conexão
+            </button>
+          )}
+          {!!state.settings.bloggerBlogs?.length && (
+            <button
+              disabled={busy || !state.unlocked}
+              onClick={() => act("bloggerDisconnect")}
+            >
+              Desconectar Blogger
+            </button>
+          )}
+        </div>
+        <p className="small muted">
+          Neste alfa, sua conta Google precisa estar cadastrada como testadora.
+          O Google pode exigir nova autorização após sete dias. Desconectar
+          remove o token deste workspace; revogue o app na conta Google para
+          invalidar outras cópias.
+        </p>
       </section>
       <section>
         <h2>WordPress.com</h2>

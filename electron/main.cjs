@@ -14,7 +14,65 @@ if (!app.requestSingleInstanceLock()) app.quit();
 const instagramAuth = require("../core/instagram-auth.cjs");
 const authService =
   process.env.STUDIO_AUTH_ORIGIN || require("../core/auth-config.json").origin;
+const blogger = require("../core/blogger.cjs");
 const actions = {
+  bloggerConnect: async () => {
+    if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
+    controller = new AbortController();
+    const credential = await instagramAuth.connect({
+      service: authService,
+      provider: "blogger",
+      openBrowser: (url) => shell.openExternal(url),
+      signal: controller.signal,
+    });
+    const blogs = await blogger.blogs(credential.token);
+    controller.signal.throwIfAborted();
+    if (!blogs.length)
+      throw Error(
+        "Esta conta Google não administra blogs. Conecte a conta correta.",
+      );
+    w.storeSecret("blogger", JSON.stringify(credential));
+    const selected = blogs.length === 1 ? blogs[0] : null;
+    Object.assign(w.state.settings, {
+      bloggerBlogs: blogs,
+      bloggerId: selected?.id || "",
+      bloggerUrl: selected?.url || "",
+      bloggerName: selected?.name || "",
+    });
+    for (const p of w.state.projects) if (p.approval) delete p.approval.blogger;
+    w.save();
+    return w.snapshot();
+  },
+  bloggerSelect: async ({ id }) => {
+    const blogs = await blogger.blogs(await blogger.access(w, authService));
+    const selected = blogs.find((b) => b.id === id);
+    if (!selected) throw Error("Escolha um blog autorizado pela conta Google.");
+    Object.assign(w.state.settings, {
+      bloggerBlogs: blogs,
+      bloggerId: selected.id,
+      bloggerUrl: selected.url,
+      bloggerName: selected.name,
+    });
+    for (const p of w.state.projects) if (p.approval) delete p.approval.blogger;
+    w.save();
+    return w.snapshot();
+  },
+  bloggerTest: async () => {
+    await blogger.verify(w, authService);
+    return w.snapshot();
+  },
+  bloggerDisconnect: () => {
+    w.storeSecret("blogger", null);
+    Object.assign(w.state.settings, {
+      bloggerBlogs: [],
+      bloggerId: "",
+      bloggerUrl: "",
+      bloggerName: "",
+    });
+    for (const p of w.state.projects) if (p.approval) delete p.approval.blogger;
+    w.save();
+    return w.snapshot();
+  },
   wordpressConnect: async () => {
     if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
     controller = new AbortController();
@@ -286,7 +344,7 @@ const actions = {
     return true;
   },
   publish: async ({ id, channel, urls }) => {
-    if (!["wordpress", "instagram"].includes(channel))
+    if (!["wordpress", "instagram", "blogger"].includes(channel))
       throw Error("Canal inválido.");
     const p = w.project(id);
     assertApproved(p, w.state.settings, channel);
@@ -296,9 +354,15 @@ const actions = {
       defaultId: 0,
       cancelId: 0,
       message: `Publicar a revisão atual de “${p.title}” no ${channel}?`,
-      detail: "Esta ação enviará o conteúdo à conta configurada.",
+      detail:
+        channel === "blogger"
+          ? "Destino: " + w.state.settings.bloggerUrl
+          : "Esta ação enviará o conteúdo à conta configurada.",
     });
-    if (confirmation.response === 1) await publishers[channel](w, id, urls);
+    if (confirmation.response === 1) {
+      if (channel === "blogger") await blogger.publish(w, id, authService);
+      else await publishers[channel](w, id, urls);
+    }
     return w.snapshot();
   },
   reconcile: async ({ id, remoteId }) => {

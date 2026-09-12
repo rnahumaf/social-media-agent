@@ -11,3 +11,9 @@ O usuário não precisa criar aplicativos de desenvolvedor, instalar Node ou cop
 Para gerar conteúdo real, informe sua chave OpenRouter, escolha modelos e desative demonstração. Revise e aprove cada destino antes de publicar. O Instagram ainda exige URLs HTTPS dos JPEGs exportados, hospedados sem alteração. Publicação real ainda não foi validada.
 
 Para transferir seu histórico, use Copiar workspace e abra a cópia com a mesma senha no outro computador. Distribua apenas o aplicativo e este guia a novos testadores.
+
+## Blogger
+
+No Blogger, clique em Conectar Blogger com Google, use a conta que administra o blog e autorize. Se houver mais de um blog, escolha o destino na lista do aplicativo. Confira o endereço antes de aprovar qualquer publicação. A conta Google precisa estar cadastrada como testadora durante este alfa. O Google pode exigir nova autorização após sete dias; o app renova o token de acesso enquanto a autorização permanece válida.
+
+O conector Blogger está implementado e coberto por testes com fixtures. A validação na conta real do primeiro testador ainda depende da habilitação da API e do consentimento Google; não confunda isso com o teste já concluído do WordPress.com.

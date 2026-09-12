@@ -29,6 +29,12 @@ const stateSchema = z.object({
     wordpressProvider: z.enum(["selfhosted", "wordpress.com"]).optional(),
     wordpressSiteId: z.string().optional(),
     wordpressSiteName: z.string().optional(),
+    bloggerId: z.string().optional(),
+    bloggerUrl: z.string().optional(),
+    bloggerName: z.string().optional(),
+    bloggerBlogs: z
+      .array(z.object({ id: z.string(), name: z.string(), url: z.string() }))
+      .optional(),
     instagramAccount: z.string(),
     graphVersion: z.string(),
     instagramUsername: z.string().optional(),
@@ -90,9 +96,11 @@ function approvalHash(p, settings, channel) {
             settings.wordpressProvider || "selfhosted",
             settings.wordpressSiteId || "",
           ]
-        : channel === "instagram"
-          ? [settings.instagramAccount, settings.graphVersion]
-          : "export",
+        : channel === "blogger"
+          ? [settings.bloggerId || "", settings.bloggerUrl || ""]
+          : channel === "instagram"
+            ? [settings.instagramAccount, settings.graphVersion]
+            : "export",
   });
 }
 function assertApproved(p, settings, channel) {
@@ -194,9 +202,13 @@ class Workspace {
     if (values) {
       for (const [k, v] of Object.entries(values))
         if (
-          ["openrouter", "wordpress", "instagram", "wordpressCom"].includes(
-            k,
-          ) &&
+          [
+            "openrouter",
+            "wordpress",
+            "instagram",
+            "wordpressCom",
+            "blogger",
+          ].includes(k) &&
           typeof v === "string" &&
           v
         )
@@ -301,7 +313,10 @@ class Workspace {
   }
   approve(id, channel) {
     const p = this.project(id);
-    if (!["export", "wordpress", "instagram"].includes(channel) || !current(p))
+    if (
+      !["export", "wordpress", "instagram", "blogger"].includes(channel) ||
+      !current(p)
+    )
       throw Error("Revisão ou canal inválido.");
     for (const [i, card] of current(p).cards.entries())
       require("./render.cjs").svgCard(card, i, current(p).cards.length);

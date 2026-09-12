@@ -39,10 +39,10 @@ async function connect({
   signal,
   provider = "instagram",
 }) {
-  if (!["instagram", "wordpress"].includes(provider))
+  if (!["instagram", "wordpress", "blogger"].includes(provider))
     throw Error("Provedor inválido.");
   const base =
-      serviceURL(service) + (provider === "wordpress" ? "/wordpress" : ""),
+      serviceURL(service) + (provider === "instagram" ? "" : "/" + provider),
     verifier = crypto.randomBytes(32).toString("base64url");
   const session = await request(base + "/sessions", {
     method: "POST",
@@ -54,13 +54,18 @@ async function connect({
     throw Error("Sessão de conexão inválida.");
   const url = new URL(session.url);
   const valid =
-    provider === "wordpress"
-      ? url.origin === "https://public-api.wordpress.com" &&
-        url.pathname === "/oauth2/authorize" &&
-        url.searchParams.get("scope") === "posts media"
-      : url.origin === "https://www.instagram.com" &&
-        url.pathname === "/oauth/authorize" &&
-        url.searchParams.get("scope") === scopes.join(",");
+    provider === "blogger"
+      ? url.origin === "https://accounts.google.com" &&
+        url.pathname === "/o/oauth2/v2/auth" &&
+        url.searchParams.get("scope") ===
+          "https://www.googleapis.com/auth/blogger"
+      : provider === "wordpress"
+        ? url.origin === "https://public-api.wordpress.com" &&
+          url.pathname === "/oauth2/authorize" &&
+          url.searchParams.get("scope") === "posts media"
+        : url.origin === "https://www.instagram.com" &&
+          url.pathname === "/oauth/authorize" &&
+          url.searchParams.get("scope") === scopes.join(",");
   if (!valid) throw Error("Autorização inesperada do serviço de conexão.");
   try {
     await openBrowser(url.href);
@@ -80,6 +85,7 @@ async function connect({
               "permissions",
               "long_token",
               "wordpress_token",
+              "blogger_token",
             ].includes(result.failureStage)
               ? result.failureStage
               : "autorização") +
@@ -102,6 +108,20 @@ async function connect({
             ". Tente conectar novamente.",
         );
       if (result.status === "ready") {
+        if (provider === "blogger") {
+          if (
+            typeof result.token !== "string" ||
+            typeof result.refreshToken !== "string" ||
+            !Number.isFinite(result.expiresAt) ||
+            result.expiresAt <= Date.now()
+          )
+            throw Error("Credencial Blogger inválida.");
+          return {
+            token: result.token,
+            refreshToken: result.refreshToken,
+            expiresAt: result.expiresAt,
+          };
+        }
         if (provider === "wordpress") {
           if (typeof result.token !== "string")
             throw Error("Credencial inválida.");

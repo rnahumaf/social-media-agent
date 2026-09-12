@@ -46,3 +46,9 @@ Referência: [Login de Empresa no Instagram](https://developers.facebook.com/doc
 O mesmo Worker oferece `/wordpress/sessions` e `/wordpress/callback`. Configure `WORDPRESS_CLIENT_ID` como variável pública e `WORDPRESS_CLIENT_SECRET` como Secret. O consentimento solicita `posts media`, sem acesso global. Cada sessão é vinculada ao provedor; um callback ou resgate Instagram não pode consumir uma sessão WordPress. O desktop confirma o site pela API oficial e verifica o vínculo do token ao site, os escopos e a consulta autenticada de posts antes de guardar o token. O conector para hospedagem própria continua usando senha de aplicativo e endpoint `/wp-json/wp/v2`.
 
 Os diagnósticos `node scripts/validate-instagram.cjs NOME` e `node scripts/validate-wordpress.cjs HOST_DO_SITE` exibem a URL de consentimento e somente o resultado resumido. Não salvam tokens. A implementação Node alternativa não oferece WordPress.com e não foi validada contra contas reais; use o Worker implantado neste alfa.
+
+## Blogger
+
+Configure GOOGLE_CLIENT_ID e o Secret GOOGLE_CLIENT_SECRET para um cliente web Google com callback HTTPS em /blogger/callback. Habilite a API Blogger no projeto Google e mantenha os testadores em Audience durante o alfa. As rotas /blogger/sessions usam a mesma entrega por verificador e consumo único. O escopo solicitado é https://www.googleapis.com/auth/blogger. O serviço não grava tokens; o refresh token retorna ao cofre do desktop. /blogger/refresh recebe esse token em Authorization, usa o segredo do cliente apenas no servidor e retorna o token de acesso renovado, sem persistência.
+
+O Google limita autorizações de apps externos em Testing; reconexão pode ser necessária após sete dias. O projeto foi cadastrado, mas a API e o consentimento real precisam ser validados antes de declarar a integração pronta.

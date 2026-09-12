@@ -20,6 +20,18 @@ const save = () => {
   return structuredClone(state);
 };
 export const preview: API = {
+  bloggerConnect: async () => {
+    throw Error("Abra o aplicativo desktop para conectar o Blogger.");
+  },
+  bloggerSelect: async () => {
+    throw Error("Abra o aplicativo desktop.");
+  },
+  bloggerTest: async () => {
+    throw Error("Abra o aplicativo desktop.");
+  },
+  bloggerDisconnect: async () => {
+    throw Error("Abra o aplicativo desktop.");
+  },
   update: async ({ id, ...fields }) => {
     const p = state.projects.find((p) => p.id === id)!;
     Object.assign(p, fields);

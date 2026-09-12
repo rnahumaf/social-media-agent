@@ -25,8 +25,8 @@ async function models() {
     }));
 }
 async function complete({ key, model, system, messages, signal }) {
-  if (!key || !model)
-    throw Error("Desbloqueie o cofre e escolha um modelo para cada agente.");
+  if (!key) throw Error("A chave OpenRouter não foi informada.");
+  if (!model) throw Error("Nenhum modelo foi escolhido para este agente.");
   const data = await request("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {

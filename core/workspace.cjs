@@ -173,7 +173,14 @@ class Workspace {
     fs.unlinkSync(this.lock);
   }
   snapshot() {
-    return structuredClone({ ...this.state, unlocked: !!this.secrets });
+    return structuredClone({
+      ...this.state,
+      unlocked: !!this.secrets,
+      openrouterConfigured: this.secrets
+        ? typeof this.secrets.openrouter === "string" &&
+          !!this.secrets.openrouter.trim()
+        : undefined,
+    });
   }
   unlock(password, values) {
     if (typeof password !== "string" || password.length < 10)

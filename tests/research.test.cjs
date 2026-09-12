@@ -158,3 +158,21 @@ test("PubMed service failure is not mistaken for an empty search", async (t) => 
   assert.equal(calls, 1);
   assert.equal(p.status, "failed");
 });
+
+test("missing OpenRouter key reports the real setup problem without changing the project", async (t) => {
+  const { w, p } = await fixture(t);
+  w.secrets = {};
+  const before = structuredClone(p);
+  await assert.rejects(run(w, p.id), /chave OpenRouter não está salva/);
+  assert.deepEqual(p, before);
+  assert.equal(w.snapshot().unlocked, true);
+  assert.equal(w.snapshot().openrouterConfigured, false);
+});
+
+test("locked vault is distinguished from a missing OpenRouter key", async (t) => {
+  const { w, p } = await fixture(t);
+  w.secrets = null;
+  await assert.rejects(run(w, p.id), /cofre está bloqueado/);
+  assert.equal(p.status, "briefing");
+  assert.equal(w.snapshot().openrouterConfigured, undefined);
+});

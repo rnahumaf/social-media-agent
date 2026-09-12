@@ -1,8 +1,8 @@
-# Primeiro acesso — alfa 0.1.0-alpha.4
+# Primeiro acesso — alfa 0.1.0-alpha.5
 
 Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. A tela **Modelos e conexões** apresenta três etapas. Você não precisa instalar Node, criar aplicativos de desenvolvedor ou copiar tokens. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
 
-1. **Proteja suas conexões.** Crie uma senha-mestra com pelo menos dez caracteres e clique em **Criar ou desbloquear cofre**. Guarde essa senha: ela protege as autorizações locais e não tem recuperação. As chaves opcionais podem ficar vazias para testar as conexões.
+1. **Proteja suas conexões.** Crie uma senha-mestra com pelo menos dez caracteres. Para gerar conteúdo no modo conectado, informe também sua chave OpenRouter e clique em **Criar ou desbloquear cofre**. Guarde a senha: ela protege as autorizações locais e não tem recuperação. O aplicativo mostra separadamente se o cofre está desbloqueado e se a chave OpenRouter está salva.
 2. **Conecte o Instagram.** Use uma conta profissional de criador ou empresa. Neste alfa por convite, clique em **Abrir convites do Instagram** e aceite o convite de testador do Social Media Agent Alpha na área de aplicativos e sites. Depois volte ao app, clique em **Conectar Instagram** e autorize perfil e publicação no navegador. Ao retornar, confira seu @ e use **Verificar conexão**.
 3. **Conecte o Blogger.** Clique em **Conectar Blogger com Google** e entre com a conta que administra o blog. Autorize o acesso e volte ao app. Se houver vários blogs, escolha o destino na lista. Confira o endereço e clique em **Verificar conexão**. Isso apenas consulta o acesso; não publica.
 
@@ -22,7 +22,7 @@ Para WordPress.com, use **Conectar WordPress.com**, autorize posts e mídia e co
 
 Descreva o tema, o público e o objetivo da pauta. O pesquisador decide os termos de busca no PubMed; você pode conferir a consulta em Fontes.
 
-Para gerar conteúdo real, abra os campos opcionais do cofre, informe sua chave OpenRouter, escolha os modelos e desative demonstração. Revise e aprove cada destino antes de publicar. O Instagram ainda exige URLs HTTPS dos JPEGs exportados, hospedados sem alteração.
+Para gerar conteúdo real, informe sua chave OpenRouter no cofre, escolha os modelos e desative demonstração. Ao abrir um workspace existente, a senha-mestra desbloqueia as credenciais que já estavam naquele cofre; ela não adiciona uma chave OpenRouter que nunca foi salva. Revise e aprove cada destino antes de publicar. O Instagram ainda exige URLs HTTPS dos JPEGs exportados, hospedados sem alteração.
 
 **Desconectar** remove a autorização deste workspace. Para invalidar também cópias anteriores, revogue o aplicativo nas configurações do provedor. Para transferir seu histórico, use **Copiar workspace**, abra a cópia no outro computador e use a mesma senha-mestra. Apenas um computador deve escrever nessa pasta por vez.
 

@@ -111,8 +111,22 @@ app.whenReady().then(async () => {
       await win.webContents.executeJavaScript("typeof require"),
       "undefined",
     );
-    await call("open");
-    await call("vault", { password: "desktop-fixture-password" });
+    let vaultState = await call("open");
+    assert.equal(vaultState.unlocked, false);
+    assert.equal(vaultState.openrouterConfigured, undefined);
+    vaultState = await call("vault", {
+      password: "desktop-fixture-password",
+    });
+    assert.equal(vaultState.unlocked, true);
+    assert.equal(vaultState.openrouterConfigured, false);
+    vaultState = await call("vault", {
+      password: "desktop-fixture-password",
+      values: { openrouter: "desktop-fixture-openrouter-key" },
+    });
+    assert.equal(vaultState.openrouterConfigured, true);
+    assert.ok(
+      !JSON.stringify(vaultState).includes("desktop-fixture-openrouter-key"),
+    );
     let connected = await call("instagramConnect");
     assert.equal(connected.settings.instagramUsername, "desktop_fixture");
     assert.ok(instagramOpened);

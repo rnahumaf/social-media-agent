@@ -103,7 +103,12 @@ function App() {
         setNotice("Conexão verificada com sucesso.");
       return result;
     } catch (e) {
-      setNotice((e as Error).message);
+      setNotice(
+        (e as Error).message.replace(
+          /^Error invoking remote method '[^']+': Error: /,
+          "",
+        ),
+      );
       await refresh().catch(() => {});
     } finally {
       setBusy(false);
@@ -215,7 +220,11 @@ function App() {
               ? "Prévia no navegador"
               : state?.settings.demo
                 ? "Demonstração local"
-                : "OpenRouter conectado"}
+                : !state?.unlocked
+                  ? "Cofre bloqueado"
+                  : state.openrouterConfigured
+                    ? "OpenRouter conectado"
+                    : "Chave OpenRouter ausente"}
           </span>
         </header>
         {notice && (
@@ -286,10 +295,29 @@ function App() {
                   <button
                     className="primary"
                     disabled={dirty}
-                    onClick={() => act("run", { id })}
+                    onClick={() => {
+                      if (
+                        !state!.settings.demo &&
+                        (!state!.unlocked || !state!.openrouterConfigured)
+                      ) {
+                        setScreen("settings");
+                        setNotice(
+                          !state!.unlocked
+                            ? "Desbloqueie o cofre para iniciar a produção."
+                            : "Adicione sua chave OpenRouter ao cofre para iniciar a produção.",
+                        );
+                        return;
+                      }
+                      act("run", { id });
+                    }}
                   >
                     <Play size={16} />
-                    {r ? "Gerar nova versão" : "Iniciar produção"}
+                    {!state!.settings.demo &&
+                    (!state!.unlocked || !state!.openrouterConfigured)
+                      ? "Configurar OpenRouter"
+                      : r
+                        ? "Gerar nova versão"
+                        : "Iniciar produção"}
                   </button>
                 )}
               </div>
@@ -1076,20 +1104,33 @@ function SettingsPanel({
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
+          <div className="split">
+            <strong>OpenRouter</strong>
+            <span className="tag">
+              {state.openrouterConfigured
+                ? "Chave salva"
+                : state.unlocked
+                  ? "Chave ausente"
+                  : "Desbloqueie para conferir"}
+            </span>
+          </div>
+          <label>
+            Chave OpenRouter (necessária no modo conectado)
+            <input
+              type="password"
+              autoComplete="off"
+              value={openrouter}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder={
+                state.openrouterConfigured
+                  ? "Deixe vazio para preservar a chave salva"
+                  : "Cole sua chave OpenRouter"
+              }
+            />
+          </label>
           <details>
-            <summary>
-              Chaves para geração de conteúdo e WordPress próprio (opcional)
-            </summary>
+            <summary>WordPress com hospedagem própria (opcional)</summary>
             <div className="form-grid">
-              <label>
-                Chave OpenRouter
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={openrouter}
-                  onChange={(e) => setKey(e.target.value)}
-                />
-              </label>
               <label>
                 Senha WordPress (hospedagem própria)
                 <input

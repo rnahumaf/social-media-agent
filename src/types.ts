@@ -46,6 +46,7 @@ export type State = {
   name: string;
   memory: string;
   unlocked?: boolean;
+  openrouterConfigured?: boolean;
   settings: {
     demo: boolean;
     models: Record<string, string>;

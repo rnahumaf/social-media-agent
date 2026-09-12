@@ -5,6 +5,7 @@ let state: State = JSON.parse(
   format: 1,
   name: "Workspace de demonstração",
   memory: "Preserve incertezas e cite as fontes consultadas.",
+  openrouterConfigured: false,
   settings: {
     demo: true,
     models: { researcher: "", writer: "", social: "", reviewer: "" },

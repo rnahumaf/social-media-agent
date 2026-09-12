@@ -29,4 +29,10 @@ Foram acrescentados conexão Google, listagem dos blogs autorizados, seleção d
 
 A criação e a edição da pauta pedem apenas tema e briefing. O modelo do pesquisador planeja a consulta a partir da demanda e das últimas mensagens editoriais antes de consultar o PubMed. Uma busca sem resultados provoca uma reformulação, limitada a duas tentativas; falhas de serviço, cancelamento e plano inválido interrompem a execução. Sem fontes recuperadas, o redator não é chamado. Cada tentativa registra consulta, modelo, consumo e resultado no histórico portável; Fontes mostra a última consulta executada.
 
-Os 32 testes passaram, incluindo planejamento sem termos manuais, persistência após reabrir o workspace, reformulação, cancelamento e falha externa. O formulário foi inspecionado na prévia. A qualidade da formulação pelo modelo real ainda não foi avaliada com chamadas pagas.
+Os testes incluem planejamento sem termos manuais, persistência após reabrir o workspace, reformulação, cancelamento e falha externa. O formulário foi inspecionado na prévia. A qualidade da formulação pelo modelo real ainda não foi avaliada com chamadas pagas.
+
+## Estado do OpenRouter — alfa 0.1.0-alpha.5
+
+O snapshot informa apenas se uma chave OpenRouter está disponível no cofre desbloqueado, sem revelar a chave. A interface distingue cofre bloqueado, chave ausente e OpenRouter configurado. Em modo conectado, o botão de produção direciona à configuração quando falta o cofre ou a chave. A validação anterior à execução também diferencia chave ausente, cofre bloqueado e modelos não selecionados; uma falha de configuração não altera o estado da pauta. Mensagens recebidas pelo IPC deixam de exibir o prefixo técnico do Electron.
+
+Os testes cobrem os três estados do cofre, ausência de chave sem mutação da pauta e persistência do indicador sem expor o segredo.

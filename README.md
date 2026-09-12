@@ -1,6 +1,6 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-alpha.3 — esboço experimental.** Beta só começa com autorização explícita de Rodrigo para uso cotidiano dos desenvolvedores.
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-alpha.4 — esboço experimental.** Beta só começa com autorização explícita de Rodrigo para uso cotidiano dos desenvolvedores.
 
 ## Experimentar
 
@@ -35,7 +35,7 @@ Nenhum conteúdo foi publicado em contas WordPress ou Instagram durante o desenv
 
 1. Em **Modelos e conexões**, informe a senha-mestra e a chave OpenRouter no cofre.
 2. Carregue o catálogo, selecione os quatro modelos, revise a memória editorial, desative a demonstração e salve.
-3. Crie uma pauta com termos de busca PubMed, preferencialmente em inglês. A execução envia briefing, fontes e contexto editorial ao OpenRouter e a consulta ao NCBI. Há limite de 5.000 tokens de saída por chamada; não há orçamento monetário rígido neste alfa.
+3. Descreva o tema, o público e o objetivo da pauta. O pesquisador usa essa demanda e a conversa para formular a busca no PubMed; se não encontrar fontes, reformula uma vez antes de interromper. A consulta fica registrada em Fontes. A execução envia briefing, fontes e contexto editorial ao OpenRouter e a consulta ao NCBI. Há limite de 5.000 tokens de saída por chamada; não há orçamento monetário rígido neste alfa.
 4. Para WordPress.com, clique em **Conectar WordPress.com** e autorize seu site no navegador. Para hospedagem própria, configure URL HTTPS, usuário e Application Password. Para Blogger, use **Conectar Blogger com Google** e selecione seu blog.
 5. Para Instagram, desbloqueie o cofre e clique em **Conectar Instagram**. A distribuição precisa ter o serviço OAuth habilitado pelo mantenedor; veja [implantação](auth-service/README.md). O usuário autoriza perfil e publicação no Instagram, sem copiar IDs ou tokens. O serviço está implantado no Cloudflare e o OAuth Instagram foi validado com uma conta profissional, sem publicação. Renovação automática de tokens e hospedagem de imagens ainda não estão implementadas.
 6. Exporte os JPEGs e hospede-os em URLs HTTPS estáveis, sem recompressão ou alteração. Informe uma URL por card, aprove e solicite a publicação. A confirmação nativa mostra a ação antes do envio.
@@ -73,3 +73,5 @@ Antes de beta: validar contas reais e falhas de rede; implantar e validar OAuth 
 
 WordPress.com também oferece conexão OAuth pelo botão **Conectar WordPress.com**, com seleção do site e autorização de posts e mídia. Sites com hospedagem própria mantêm a configuração de senha de aplicativo.
 Para entregar a um testador, siga o [guia do alfa](docs/alpha-user-guide.md). O Instagram requer conta profissional e convite de testador enquanto a análise da Meta não for concluída.
+
+A formulação de buscas usa termos livres e operadores do PubMed conforme a [documentação oficial](https://pubmed.ncbi.nlm.nih.gov/help/). O planejamento usa o modelo escolhido para o pesquisador e seu consumo é registrado nas execuções.

@@ -264,7 +264,7 @@ class Workspace {
     if (!p) throw Error("Projeto não encontrado.");
     return p;
   }
-  create(title, brief, query) {
+  create(title, brief, query = "") {
     const p = {
       id: crypto.randomUUID(),
       title,
@@ -304,7 +304,7 @@ class Workspace {
       .object({
         title: z.string().trim().min(1).max(180),
         brief: text,
-        query: text,
+        query: text.optional(),
       })
       .parse(fields);
     Object.assign(p, changes);

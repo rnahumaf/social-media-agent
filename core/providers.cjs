@@ -52,9 +52,7 @@ async function complete({ key, model, system, messages, signal }) {
 }
 async function pubmed(query, signal) {
   if (!query.trim())
-    throw Error(
-      "Informe termos para a busca PubMed, preferencialmente em inglês.",
-    );
+    throw Error("O pesquisador não definiu uma consulta válida para o PubMed.");
   const base = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/";
   const search = await request(
     base +
@@ -63,10 +61,7 @@ async function pubmed(query, signal) {
     { signal },
   );
   const ids = search.esearchresult?.idlist || [];
-  if (!ids.length)
-    throw Error(
-      "PubMed não encontrou fontes. Ajuste a busca antes de gerar o artigo.",
-    );
+  if (!ids.length) return [];
   await new Promise((r) => setTimeout(r, 400));
   const response = await fetch(
     base + "efetch.fcgi?db=pubmed&retmode=xml&id=" + ids.join(","),

@@ -51,7 +51,6 @@ function App() {
     [mobile, setMobile] = useState(false),
     [title, setTitle] = useState(""),
     [brief, setBrief] = useState(""),
-    [query, setQuery] = useState(""),
     [message, setMessage] = useState(""),
     [draft, setDraft] = useState<Revision | null>(null),
     [dirty, setDirty] = useState(false),
@@ -480,9 +479,10 @@ function App() {
                   <div className="content-pad">
                     <h2>Dossiê de evidências</h2>
                     <p className="muted">
-                      Busca: {p.query || "Não informada"}. Os registros
-                      distinguem resumo e metadados; não implicam leitura do
-                      texto completo.
+                      Última busca no PubMed:{" "}
+                      {p.query || "Nenhuma busca externa executada"}. Os
+                      registros distinguem resumo e metadados; não implicam
+                      leitura do texto completo.
                     </p>
                     {p.sources.map((s) => (
                       <article className="source" key={s.pmid}>
@@ -719,10 +719,12 @@ function App() {
                     O histórico aparecerá após a primeira execução.
                   </p>
                 )}
-                {p.runs.slice(-4).map((run) => (
+                {p.runs.slice(-6).map((run) => (
                   <div className="agent" key={run.id}>
                     <span>
-                      {labels[run.role]}{" "}
+                      {run.phase === "search"
+                        ? "Pesquisador · busca"
+                        : labels[run.role]}{" "}
                       <small>{labels[run.status] || run.status}</small>
                     </span>
                     <small>
@@ -753,14 +755,13 @@ function App() {
             className="modal"
             onSubmit={async (e) => {
               e.preventDefault();
-              const s = await act("create", { title, brief, query });
+              const s = await act("create", { title, brief });
               if (s) {
                 setId(s.projects[0].id);
                 setCreating(false);
                 setScreen("studio");
                 setTitle("");
                 setBrief("");
-                setQuery("");
               }
             }}
           >
@@ -785,16 +786,9 @@ function App() {
                 placeholder="Público, objetivo, tom e perguntas a responder"
               />
             </label>
-            <label>
-              Termos de busca no PubMed
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ex.: science communication systematic review"
-              />
-            </label>
             <p className="small muted">
-              Prefira termos em inglês. A demonstração não faz buscas externas.
+              O pesquisador define a busca no PubMed a partir da sua pauta. A
+              demonstração não faz buscas externas.
             </p>
             <div className="actions">
               <button
@@ -881,17 +875,20 @@ function BriefEditor({
 }) {
   const [title, setTitle] = useState(project.title),
     [brief, setBrief] = useState(project.brief),
-    [query, setQuery] = useState(project.query),
     [saved, setSaved] = useState(false);
   return (
     <form
       className="content-pad"
       onSubmit={async (e) => {
         e.preventDefault();
-        setSaved(!!(await save({ title, brief, query })));
+        setSaved(!!(await save({ title, brief })));
       }}
     >
       <h2>Orientações da pauta</h2>
+      <p className="muted small">
+        Descreva o que deseja comunicar. O pesquisador define e atualiza a busca
+        no PubMed ao gerar uma nova versão.
+      </p>
       <label>
         Tema
         <input
@@ -910,16 +907,6 @@ function BriefEditor({
           value={brief}
           onChange={(e) => {
             setBrief(e.target.value);
-            setSaved(false);
-          }}
-        />
-      </label>
-      <label>
-        Termos de busca no PubMed
-        <input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
             setSaved(false);
           }}
         />

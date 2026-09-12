@@ -24,3 +24,9 @@ A versão 0.1.0-alpha.2 passou em 25 testes, build TypeScript/Vite e smoke Elect
 ## Blogger e primeiro acesso — alfa 0.1.0-alpha.3
 
 Foram acrescentados conexão Google, listagem dos blogs autorizados, seleção do destino, renovação do token e publicação protegida pela aprovação da revisão. O segredo do cliente Google fica no Cloudflare; tokens pessoais ficam no cofre. Os testes usam fixtures para confirmar vínculo ao blog, idempotência, bloqueio após resposta incerta e ausência de tokens no snapshot. A API Blogger foi habilitada e o estado Enabled foi confirmado no Google Cloud. Cliente web, callback HTTPS, segredo no Cloudflare e testador Google estão configurados. O consentimento real da conta do testador será concluído por ele no próprio computador; não foi solicitado acesso à sua senha. Nenhum conteúdo do testador foi publicado.
+
+## Pesquisa autônoma — alfa 0.1.0-alpha.4
+
+A criação e a edição da pauta pedem apenas tema e briefing. O modelo do pesquisador planeja a consulta a partir da demanda e das últimas mensagens editoriais antes de consultar o PubMed. Uma busca sem resultados provoca uma reformulação, limitada a duas tentativas; falhas de serviço, cancelamento e plano inválido interrompem a execução. Sem fontes recuperadas, o redator não é chamado. Cada tentativa registra consulta, modelo, consumo e resultado no histórico portável; Fontes mostra a última consulta executada.
+
+Os 32 testes passaram, incluindo planejamento sem termos manuais, persistência após reabrir o workspace, reformulação, cancelamento e falha externa. O formulário foi inspecionado na prévia. A qualidade da formulação pelo modelo real ainda não foi avaliada com chamadas pagas.

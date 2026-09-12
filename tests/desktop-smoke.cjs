@@ -132,7 +132,6 @@ app.whenReady().then(async () => {
     let state = await call("create", {
       title: "Fixture editorial",
       brief: "Somente teste",
-      query: "science",
     });
     const id = state.projects[0].id;
     state = await call("run", { id });

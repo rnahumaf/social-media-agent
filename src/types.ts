@@ -29,6 +29,7 @@ export type Project = {
   runs: {
     id: string;
     role: string;
+    phase?: string;
     model: string;
     status: string;
     usage?: { total_tokens?: number; cost?: number };

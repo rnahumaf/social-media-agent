@@ -1,4 +1,4 @@
-# Primeiro acesso — alfa 0.1.0-alpha.3
+# Primeiro acesso — alfa 0.1.0-alpha.4
 
 Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. A tela **Modelos e conexões** apresenta três etapas. Você não precisa instalar Node, criar aplicativos de desenvolvedor ou copiar tokens. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
 
@@ -19,6 +19,8 @@ Os executáveis ainda não têm assinatura de código; o pacote macOS também n�
 ## Outros recursos
 
 Para WordPress.com, use **Conectar WordPress.com**, autorize posts e mídia e confira o site escolhido. O fluxo foi validado no plano gratuito. WordPress com hospedagem própria usa a seção específica e senha de aplicativo.
+
+Descreva o tema, o público e o objetivo da pauta. O pesquisador decide os termos de busca no PubMed; você pode conferir a consulta em Fontes.
 
 Para gerar conteúdo real, abra os campos opcionais do cofre, informe sua chave OpenRouter, escolha os modelos e desative demonstração. Revise e aprove cada destino antes de publicar. O Instagram ainda exige URLs HTTPS dos JPEGs exportados, hospedados sem alteração.
 

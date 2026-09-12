@@ -43,7 +43,7 @@ export const preview: API = {
   },
   state: async () => save(),
   open: async () => save(),
-  create: async ({ title, brief, query }) => {
+  create: async ({ title, brief, query = "" }) => {
     state.projects.unshift({
       id: crypto.randomUUID(),
       title,

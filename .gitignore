@@ -7,3 +7,6 @@ workspaces/
 .env*
 *.log
 test-output/
+
+.wrangler/
+.dev.vars*

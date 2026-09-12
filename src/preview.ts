@@ -130,6 +130,9 @@ export const preview: API = {
   cancel: async () => true,
 };
 for (const name of [
+  "instagramConnect",
+  "instagramDisconnect",
+  "instagramTest",
   "vault",
   "lock",
   "models",

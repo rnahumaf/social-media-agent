@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("node:path"),
   fs = require("node:fs");
 const { Workspace, current, assertApproved } = require("../core/workspace.cjs");
@@ -11,7 +11,55 @@ let win,
   busy = false,
   controller;
 if (!app.requestSingleInstanceLock()) app.quit();
+const instagramAuth = require("../core/instagram-auth.cjs");
+const authService =
+  process.env.STUDIO_AUTH_ORIGIN || require("../core/auth-config.json").origin;
 const actions = {
+  instagramConnect: async () => {
+    if (!authService)
+      throw Error(
+        "A conexão Instagram ainda não foi habilitada nesta distribuição. O responsável pelo aplicativo precisa ativar o serviço de conexão.",
+      );
+    if (!w.secrets)
+      throw Error("Desbloqueie o cofre antes de conectar o Instagram.");
+    controller = new AbortController();
+    const account = await instagramAuth.connect({
+      service: authService,
+      openBrowser: (url) => shell.openExternal(url),
+      signal: controller.signal,
+    });
+    w.storeSecret("instagram", account.token);
+    w.state.settings.instagramAccount = account.id;
+    w.state.settings.instagramUsername = account.username;
+    w.state.settings.instagramExpiresAt = account.expiresAt;
+    for (const p of w.state.projects)
+      if (p.approval) delete p.approval.instagram;
+    w.save();
+    return w.snapshot();
+  },
+  instagramDisconnect: () => {
+    w.storeSecret("instagram", null);
+    w.state.settings.instagramAccount = "";
+    delete w.state.settings.instagramUsername;
+    delete w.state.settings.instagramExpiresAt;
+    for (const p of w.state.projects)
+      if (p.approval) delete p.approval.instagram;
+    w.save();
+    return w.snapshot();
+  },
+  instagramTest: async () => {
+    if (!w.secrets?.instagram)
+      throw Error("Desbloqueie o cofre e conecte o Instagram.");
+    const account = await instagramAuth.profile(
+      w.secrets.instagram,
+      w.state.settings.graphVersion,
+    );
+    if (account.id !== w.state.settings.instagramAccount)
+      throw Error("A conta autorizada mudou. Reconecte o Instagram.");
+    w.state.settings.instagramUsername = account.username;
+    w.save();
+    return w.snapshot();
+  },
   render: async ({ cards }) => {
     if (!Array.isArray(cards) || cards.length > 10)
       throw Error("Cards inválidos.");
@@ -84,7 +132,7 @@ const actions = {
   },
   vault: ({ password, values }) => w.unlock(password, values),
   lock: () => {
-    w.secrets = null;
+    w.lockVault();
     return w.snapshot();
   },
   models: () => providers.models(),

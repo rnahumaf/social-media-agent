@@ -51,6 +51,8 @@ export type State = {
     wordpressUrl: string;
     wordpressUser: string;
     instagramAccount: string;
+    instagramUsername?: string;
+    instagramExpiresAt?: number;
     graphVersion: string;
   };
   projects: Project[];

@@ -28,6 +28,8 @@ const stateSchema = z.object({
     wordpressUser: z.string(),
     instagramAccount: z.string(),
     graphVersion: z.string(),
+    instagramUsername: z.string().optional(),
+    instagramExpiresAt: z.number().optional(),
   }),
   projects: z.array(
     z.object({
@@ -143,8 +145,13 @@ class Workspace {
       JSON.stringify({ format: 1, name: this.state.name }, null, 2),
     );
   }
-  close() {
+  lockVault() {
     this.secrets = null;
+    this.vaultKey?.fill(0);
+    this.vaultKey = null;
+  }
+  close() {
+    this.lockVault();
     this.db.close();
     fs.closeSync(this.handle);
     fs.unlinkSync(this.lock);
@@ -189,6 +196,9 @@ class Workspace {
       iv = crypto.randomBytes(12),
       key = crypto.scryptSync(password, salt, 32),
       cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    this.vaultKey?.fill(0);
+    this.vaultKey = key;
+    this.vaultSalt = salt;
     const data = Buffer.concat([
       cipher.update(JSON.stringify(this.secrets)),
       cipher.final(),
@@ -203,6 +213,29 @@ class Workspace {
       }),
     );
     return this.snapshot();
+  }
+  storeSecret(name, value) {
+    if (!this.secrets || !this.vaultKey)
+      throw Error("Desbloqueie o cofre primeiro.");
+    const next = { ...this.secrets };
+    if (value === null) delete next[name];
+    else next[name] = value;
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", this.vaultKey, iv);
+    const data = Buffer.concat([
+      cipher.update(JSON.stringify(next)),
+      cipher.final(),
+    ]);
+    atomic(
+      path.join(this.dir, "vault.enc"),
+      JSON.stringify({
+        salt: this.vaultSalt.toString("hex"),
+        iv: iv.toString("hex"),
+        tag: cipher.getAuthTag().toString("hex"),
+        data: data.toString("hex"),
+      }),
+    );
+    this.secrets = next;
   }
   project(id) {
     const p = this.state.projects.find((p) => p.id === id);

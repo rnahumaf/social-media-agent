@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const methods = [
+  "instagramConnect",
+  "instagramDisconnect",
+  "instagramTest",
   "state",
   "open",
   "create",

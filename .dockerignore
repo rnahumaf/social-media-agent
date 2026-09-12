@@ -1,0 +1,9 @@
+node_modules
+release
+dist
+.git
+.env*
+workspaces
+test-output
+*.enc
+*.sqlite

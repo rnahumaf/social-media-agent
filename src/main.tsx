@@ -949,7 +949,19 @@ function SettingsPanel({
     [password, setPassword] = useState(""),
     [openrouter, setKey] = useState(""),
     [wordpress, setWp] = useState(""),
-    [instagram, setIg] = useState("");
+    [connecting, setConnecting] = useState(false);
+  useEffect(() => {
+    setS((previous) => ({
+      ...previous,
+      instagramAccount: state.settings.instagramAccount,
+      instagramUsername: state.settings.instagramUsername,
+      instagramExpiresAt: state.settings.instagramExpiresAt,
+    }));
+  }, [
+    state.settings.instagramAccount,
+    state.settings.instagramUsername,
+    state.settings.instagramExpiresAt,
+  ]);
   return (
     <section className="settings">
       <div className="eyebrow">SEU AMBIENTE DE PRODUÇÃO</div>
@@ -1044,24 +1056,84 @@ function SettingsPanel({
               onChange={(e) => setS({ ...s, wordpressUser: e.target.value })}
             />
           </label>
-          <label>
-            ID da conta profissional Instagram
-            <input
-              value={s.instagramAccount}
-              onChange={(e) => setS({ ...s, instagramAccount: e.target.value })}
-            />
-          </label>
-          <label>
-            Versão Graph API
-            <input
-              value={s.graphVersion}
-              onChange={(e) => setS({ ...s, graphVersion: e.target.value })}
-            />
-          </label>
+        </div>
+      </section>
+      <section>
+        <div className="split">
+          <h2>Instagram</h2>
+          <span className="tag">
+            {state.settings.instagramUsername
+              ? `@${state.settings.instagramUsername}`
+              : "Não conectado"}
+          </span>
+        </div>
+        <p>
+          Conecte sua conta profissional e autorize o acesso ao perfil e a
+          publicação de conteúdos. Sua senha é informada somente no Instagram.
+        </p>
+        {state.settings.instagramExpiresAt && (
+          <p className="small muted">
+            Autorização válida até{" "}
+            {new Date(state.settings.instagramExpiresAt).toLocaleDateString(
+              "pt-BR",
+            )}
+            . Reconecte se o acesso expirar ou for revogado.
+          </p>
+        )}
+        {!window.studio && (
+          <p className="small muted">
+            Esta prévia não conecta contas. Abra o aplicativo desktop para
+            autorizar o Instagram.
+          </p>
+        )}
+        {!state.unlocked && window.studio && (
+          <p className="small muted">
+            Desbloqueie o cofre abaixo para guardar a autorização com segurança.
+          </p>
+        )}
+        <div className="actions">
+          <button
+            className="primary"
+            disabled={busy || !window.studio || !state.unlocked}
+            onClick={async () => {
+              setConnecting(true);
+              try {
+                await act("instagramConnect");
+              } finally {
+                setConnecting(false);
+              }
+            }}
+          >
+            {connecting
+              ? "Aguardando autorização no navegador…"
+              : state.settings.instagramAccount
+                ? "Reconectar Instagram"
+                : "Conectar Instagram"}
+          </button>
+          {connecting && (
+            <button onClick={() => act("cancel")}>Cancelar conexão</button>
+          )}
+          {state.settings.instagramAccount && (
+            <>
+              <button
+                disabled={busy || !state.unlocked}
+                onClick={() => act("instagramTest")}
+              >
+                Verificar conexão
+              </button>
+              <button
+                disabled={busy || !state.unlocked}
+                onClick={() => act("instagramDisconnect")}
+              >
+                Desconectar deste workspace
+              </button>
+            </>
+          )}
         </div>
         <p className="small muted">
-          Instagram usa token de Instagram Login com permissão de publicação. A
-          configuração da aplicação Meta é manual neste alfa.
+          Cada publicação continua exigindo sua aprovação. Desconectar remove a
+          autorização deste workspace; para revogar também outras cópias, remova
+          o aplicativo nas configurações do Instagram.
         </p>
       </section>
       <button
@@ -1084,13 +1156,12 @@ function SettingsPanel({
             if (
               await act("vault", {
                 password,
-                values: { openrouter, wordpress, instagram },
+                values: { openrouter, wordpress },
               })
             ) {
               setPassword("");
               setKey("");
               setWp("");
-              setIg("");
             }
           }}
         >
@@ -1122,15 +1193,6 @@ function SettingsPanel({
                 autoComplete="off"
                 value={wordpress}
                 onChange={(e) => setWp(e.target.value)}
-              />
-            </label>
-            <label>
-              Token Instagram
-              <input
-                type="password"
-                autoComplete="off"
-                value={instagram}
-                onChange={(e) => setIg(e.target.value)}
               />
             </label>
           </div>

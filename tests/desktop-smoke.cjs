@@ -1,5 +1,5 @@
 // Runs the real isolated renderer and IPC against disposable fixtures.
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, shell } = require("electron");
 const fs = require("node:fs"),
   os = require("node:os"),
   path = require("node:path"),
@@ -8,6 +8,34 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "editorial-desktop-"));
 let folder = path.join(root, "workspace");
 fs.mkdirSync(folder);
 dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
+const realFetch = global.fetch;
+let instagramOpened = false;
+shell.openExternal = async (url) => {
+  assert.equal(new URL(url).origin, "https://www.instagram.com");
+  instagramOpened = true;
+};
+global.fetch = async (url, options = {}) => {
+  const u = new URL(url);
+  if (u.hostname === "social-media-agent-auth-alpha.rnahumaf.workers.dev") {
+    if (u.pathname === "/sessions")
+      return Response.json({
+        id: "s".repeat(43),
+        url: "https://www.instagram.com/oauth/authorize?scope=instagram_business_basic%2Cinstagram_business_content_publish",
+      });
+    return Response.json(
+      options.method === "DELETE"
+        ? { status: "cancelled" }
+        : {
+            status: "ready",
+            token: "desktop-fixture-token",
+            expiresAt: Date.now() + 60000,
+          },
+    );
+  }
+  if (u.hostname === "graph.instagram.com")
+    return Response.json({ user_id: "123", username: "desktop_fixture" });
+  return realFetch(url, options);
+};
 require(process.env.STUDIO_TEST_ENTRY || "../electron/main.cjs");
 app.whenReady().then(async () => {
   try {
@@ -25,6 +53,12 @@ app.whenReady().then(async () => {
       "undefined",
     );
     await call("open");
+    await call("vault", { password: "desktop-fixture-password" });
+    let connected = await call("instagramConnect");
+    assert.equal(connected.settings.instagramUsername, "desktop_fixture");
+    assert.ok(instagramOpened);
+    assert.ok(!JSON.stringify(connected).includes("desktop-fixture-token"));
+    await call("instagramTest");
     let state = await call("create", {
       title: "Fixture editorial",
       brief: "Somente teste",
@@ -49,8 +83,11 @@ app.whenReady().then(async () => {
     state = await call("state");
     assert.equal(state.projects[0].id, id);
     assert.equal(state.projects[0].revisions.length, 1);
+    await call("vault", { password: "desktop-fixture-password" });
+    state = await call("instagramDisconnect");
+    assert.equal(state.settings.instagramAccount, "");
     console.log(
-      "Desktop smoke passed: isolated preload, pipeline, JPEG, export and transferred workspace.",
+      "Desktop smoke passed: isolated preload, pipeline, JPEG, export, transferred workspace and mocked Instagram OAuth IPC.",
     );
     app.quit();
   } catch (error) {

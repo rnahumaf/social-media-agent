@@ -1,0 +1,10 @@
+{
+  "name": "social-media-agent-auth-alpha",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-12",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "vars": { "INSTAGRAM_APP_ID": "29339966865592070" },
+  "durable_objects": { "bindings": [{ "name": "AUTH_SESSIONS", "class_name": "AuthSessions" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AuthSessions"] }]
+}

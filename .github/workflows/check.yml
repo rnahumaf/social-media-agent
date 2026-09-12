@@ -1,5 +1,7 @@
 name: Alpha checks
 on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
 jobs:
   check:
     strategy:
@@ -19,9 +21,9 @@ jobs:
       - run: npm audit --omit=dev
       - run: npx install-electron
       - if: runner.os == 'Windows'
-        run: npx electron-builder --win portable
+        run: npx electron-builder --win portable --publish never
       - if: runner.os == 'macOS'
-        run: npx electron-builder --mac zip
+        run: npx electron-builder --mac zip --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: alpha-${{ matrix.os }}

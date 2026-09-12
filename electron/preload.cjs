@@ -7,6 +7,7 @@ const methods = [
   "wordpressConnect",
   "wordpressDisconnect",
   "wordpressTest",
+  "instagramInvites",
   "instagramConnect",
   "instagramDisconnect",
   "instagramTest",

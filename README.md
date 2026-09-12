@@ -1,10 +1,10 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-alpha.1 — esboço experimental.** Beta só começa com autorização explícita de Rodrigo para uso cotidiano dos desenvolvedores.
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-alpha.3 — esboço experimental.** Beta só começa com autorização explícita de Rodrigo para uso cotidiano dos desenvolvedores.
 
 ## Experimentar
 
-No Windows, abra o executável portátil em `release/` e escolha uma pasta vazia para o workspace. Comece em **demonstração local**, crie uma pauta e clique em **Iniciar produção**. Edite o artigo e os cards, salve uma revisão e abra **Aprovação** para conferir os JPEGs e exportar.
+No Windows, abra o executável portátil em `release/` e escolha uma pasta vazia para o workspace. Siga o [guia de primeiro acesso](docs/alpha-user-guide.md) para conectar suas contas. Para explorar a produção, comece em **demonstração local**, crie uma pauta e clique em **Iniciar produção**. Edite o artigo e os cards, salve uma revisão e abra **Aprovação** para conferir os JPEGs e exportar.
 
 Para desenvolver, use Node.js 22 ou superior:
 
@@ -26,7 +26,8 @@ npm start
 - Cofre AES-256-GCM com chave derivada por scrypt e senha-mestra; credenciais desbloqueadas ficam no processo principal.
 - Aprovação por revisão, canal e destino; editar exige aprovar novamente.
 - Conector WordPress para publicação e atualização pelo ID remoto, com bloqueio após resultado incerto.
-- Conector Instagram experimental por token de Instagram Login, criação de contêineres, verificação de processamento e publicação do carrossel. Compara os JPEGs públicos aos arquivos renderizados antes de enviar.
+- Conector Blogger com login Google, seleção de blog, renovação de acesso e publicação vinculada à revisão aprovada.
+- Conector Instagram experimental por OAuth de Instagram Login, criação de contêineres, verificação de processamento e publicação do carrossel. Compara os JPEGs públicos aos arquivos renderizados antes de enviar.
 
 Nenhum conteúdo foi publicado em contas WordPress ou Instagram durante o desenvolvimento. Os conectores precisam de teste real em contas de homologação antes do uso cotidiano.
 
@@ -35,7 +36,7 @@ Nenhum conteúdo foi publicado em contas WordPress ou Instagram durante o desenv
 1. Em **Modelos e conexões**, informe a senha-mestra e a chave OpenRouter no cofre.
 2. Carregue o catálogo, selecione os quatro modelos, revise a memória editorial, desative a demonstração e salve.
 3. Crie uma pauta com termos de busca PubMed, preferencialmente em inglês. A execução envia briefing, fontes e contexto editorial ao OpenRouter e a consulta ao NCBI. Há limite de 5.000 tokens de saída por chamada; não há orçamento monetário rígido neste alfa.
-4. Para WordPress, configure URL HTTPS, usuário e Application Password. Use uma conta com permissões compatíveis com a publicação.
+4. Para WordPress.com, clique em **Conectar WordPress.com** e autorize seu site no navegador. Para hospedagem própria, configure URL HTTPS, usuário e Application Password. Para Blogger, use **Conectar Blogger com Google** e selecione seu blog.
 5. Para Instagram, desbloqueie o cofre e clique em **Conectar Instagram**. A distribuição precisa ter o serviço OAuth habilitado pelo mantenedor; veja [implantação](auth-service/README.md). O usuário autoriza perfil e publicação no Instagram, sem copiar IDs ou tokens. O serviço está implantado no Cloudflare e o OAuth Instagram foi validado com uma conta profissional, sem publicação. Renovação automática de tokens e hospedagem de imagens ainda não estão implementadas.
 6. Exporte os JPEGs e hospede-os em URLs HTTPS estáveis, sem recompressão ou alteração. Informe uma URL por card, aprove e solicite a publicação. A confirmação nativa mostra a ação antes do envio.
 

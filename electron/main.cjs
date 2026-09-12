@@ -16,6 +16,12 @@ const authService =
   process.env.STUDIO_AUTH_ORIGIN || require("../core/auth-config.json").origin;
 const blogger = require("../core/blogger.cjs");
 const actions = {
+  instagramInvites: async () => {
+    await shell.openExternal(
+      "https://www.instagram.com/accounts/manage_access/",
+    );
+    return true;
+  },
   bloggerConnect: async () => {
     if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
     controller = new AbortController();

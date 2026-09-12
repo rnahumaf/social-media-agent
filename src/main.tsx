@@ -68,6 +68,7 @@ function App() {
     refresh()
       .then((s) => {
         if (s?.projects[0]) setId(s.projects[0].id);
+        else if (s && window.studio) setScreen("settings");
       })
       .catch((e) => setNotice(e.message));
   }, []);
@@ -95,7 +96,7 @@ function App() {
         setState(result);
         if (name === "open") {
           setId(result.projects[0]?.id || "");
-          setScreen("studio");
+          setScreen(result.projects.length ? "studio" : "settings");
           setMobile(false);
         }
       } else if (result === true) setNotice("Operação concluída.");
@@ -1008,6 +1009,347 @@ function SettingsPanel({
         A pasta de trabalho guarda o histórico. O cofre protege as credenciais
         com sua senha-mestra.
       </p>
+      <section aria-label="Primeiro acesso" className="setup-guide">
+        <h2>Conecte suas contas no seu computador</h2>
+        <p>
+          Você faz login diretamente no Google e no Instagram. O responsável
+          pelo teste não precisa conhecer suas senhas. As autorizações são
+          salvas automaticamente no cofre.
+        </p>
+        <div className="actions">
+          {[
+            [
+              "setup-vault",
+              state.unlocked ? "1. Cofre desbloqueado" : "1. Abrir cofre",
+            ],
+            [
+              "setup-instagram",
+              state.settings.instagramUsername
+                ? "2. Instagram conectado"
+                : "2. Instagram",
+            ],
+            [
+              "setup-blogger",
+              state.settings.bloggerId ? "3. Blogger conectado" : "3. Blogger",
+            ],
+          ].map(([target, label]) => (
+            <button
+              key={target}
+              onClick={() => {
+                const el = document.getElementById(target);
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {!window.studio && (
+          <p className="small muted">
+            Esta é uma prévia. Para conectar contas, use o executável recebido
+            para teste.
+          </p>
+        )}
+      </section>
+      <section id="setup-vault">
+        <div className="split">
+          <h2>1. Proteja suas conexões</h2>
+          <span className="tag">
+            {state.unlocked ? "Desbloqueado" : "Bloqueado"}
+          </span>
+        </div>
+        <p>
+          Crie uma senha para o cofre deste aplicativo. Se já criou, use a mesma
+          senha para desbloquear. Esta senha não é a do Google nem a do
+          Instagram.
+        </p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (
+              await act("vault", {
+                password,
+                values: { openrouter, wordpress },
+              })
+            ) {
+              setPassword("");
+              setKey("");
+              setWp("");
+            }
+          }}
+        >
+          <label>
+            Senha-mestra (mínimo de 10 caracteres)
+            <input
+              type="password"
+              autoComplete="off"
+              minLength={10}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          <details>
+            <summary>
+              Chaves para geração de conteúdo e WordPress próprio (opcional)
+            </summary>
+            <div className="form-grid">
+              <label>
+                Chave OpenRouter
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={openrouter}
+                  onChange={(e) => setKey(e.target.value)}
+                />
+              </label>
+              <label>
+                Senha WordPress (hospedagem própria)
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={wordpress}
+                  onChange={(e) => setWp(e.target.value)}
+                />
+              </label>
+            </div>
+          </details>
+          <p className="small muted">
+            Campos vazios preservam as credenciais existentes. A senha-mestra
+            não é salva. Guarde-a para abrir o cofre em outro computador.
+          </p>
+          <div className="actions">
+            <button disabled={busy}>Criar ou desbloquear cofre</button>
+            <button
+              type="button"
+              disabled={busy || !state.unlocked}
+              onClick={() => act("lock")}
+            >
+              Bloquear cofre
+            </button>
+          </div>
+        </form>
+      </section>{" "}
+      <section id="setup-instagram">
+        <div className="split">
+          <h2>2. Conecte o Instagram</h2>
+          <span className="tag">
+            {state.settings.instagramUsername
+              ? `@${state.settings.instagramUsername}`
+              : "Não conectado"}
+          </span>
+        </div>
+        <p>
+          Conecte sua conta profissional e autorize o acesso ao perfil e a
+          publicação de conteúdos. Sua senha é informada somente no Instagram.
+        </p>
+        <p className="small muted">
+          Neste alfa, peça ao responsável pelo teste um convite e aceite-o nas
+          configurações do Instagram antes de conectar. A conta precisa ser de
+          criador ou empresa; contas pessoais comuns não são compatíveis.
+        </p>
+        <ol>
+          <li>Use sua conta profissional de criador ou empresa.</li>
+          <li>
+            Aceite o convite do Social Media Agent Alpha nas configurações do
+            Instagram.
+          </li>
+          <li>
+            Clique em Conectar Instagram, autorize no navegador e volte para
+            conferir seu @ aqui.
+          </li>
+        </ol>
+        <button
+          disabled={busy || !window.studio}
+          onClick={() => act("instagramInvites")}
+        >
+          Abrir convites do Instagram
+        </button>
+        {connecting && (
+          <p role="status">
+            Conclua a autorização no navegador do seu computador. Ao terminar,
+            volte a esta janela. Não envie sua senha a ninguém.
+          </p>
+        )}
+        {state.settings.instagramExpiresAt && (
+          <p className="small muted">
+            Autorização válida até{" "}
+            {new Date(state.settings.instagramExpiresAt).toLocaleDateString(
+              "pt-BR",
+            )}
+            . Reconecte se o acesso expirar ou for revogado.
+          </p>
+        )}
+        {!window.studio && (
+          <p className="small muted">
+            Esta prévia não conecta contas. Abra o aplicativo desktop para
+            autorizar o Instagram.
+          </p>
+        )}
+        {!state.unlocked && window.studio && (
+          <p className="small muted">
+            Desbloqueie o cofre na etapa 1 para guardar a autorização com
+            segurança.
+          </p>
+        )}
+        <div className="actions">
+          <button
+            className="primary"
+            disabled={busy || !window.studio || !state.unlocked}
+            onClick={async () => {
+              setConnecting(true);
+              try {
+                await act("instagramConnect");
+              } finally {
+                setConnecting(false);
+              }
+            }}
+          >
+            {connecting
+              ? "Aguardando autorização no navegador…"
+              : state.settings.instagramAccount
+                ? "Reconectar Instagram"
+                : "Conectar Instagram"}
+          </button>
+          {connecting && (
+            <button onClick={() => act("cancel")}>Cancelar conexão</button>
+          )}
+          {state.settings.instagramAccount && (
+            <>
+              <button
+                disabled={busy || !state.unlocked}
+                onClick={() => act("instagramTest")}
+              >
+                Verificar conexão
+              </button>
+              <button
+                disabled={busy || !state.unlocked}
+                onClick={() => act("instagramDisconnect")}
+              >
+                Desconectar deste workspace
+              </button>
+            </>
+          )}
+        </div>
+        <p className="small muted">
+          Cada publicação continua exigindo sua aprovação. Desconectar remove a
+          autorização deste workspace; para revogar também outras cópias, remova
+          o aplicativo nas configurações do Instagram.
+        </p>
+      </section>{" "}
+      <section id="setup-blogger">
+        <div className="split">
+          <h2>3. Conecte o Blogger</h2>
+          <span className="tag">
+            {state.settings.bloggerId ? "Conectado" : "Não conectado"}
+          </span>
+        </div>
+        <p>
+          Entre com Google para conectar seu blog. A autorização permite
+          gerenciar o Blogger; cada publicação no aplicativo exige sua
+          aprovação.
+        </p>
+        <ol>
+          <li>
+            Clique em Conectar Blogger com Google e escolha a conta que
+            administra o blog.
+          </li>
+          <li>
+            Autorize no navegador e volte ao aplicativo. Se houver mais de um
+            blog, escolha o destino abaixo.
+          </li>
+          <li>
+            Confira o endereço e clique em Verificar conexão. Isso não publica
+            conteúdo.
+          </li>
+        </ol>
+        {bloggerConnecting && (
+          <p role="status">
+            Aguardando você autorizar o Google no navegador. Use a sua própria
+            conta; nenhuma senha deve ser enviada ao responsável pelo alfa.
+          </p>
+        )}
+        {state.settings.bloggerUrl && (
+          <p>
+            {state.settings.bloggerName} — {state.settings.bloggerUrl}
+          </p>
+        )}
+        {!!state.settings.bloggerBlogs?.length && (
+          <label>
+            Blog de destino
+            <select
+              disabled={busy || !state.unlocked}
+              value={state.settings.bloggerId || ""}
+              onChange={(e) => act("bloggerSelect", { id: e.target.value })}
+            >
+              <option value="" disabled>
+                Escolha um blog
+              </option>
+              {state.settings.bloggerBlogs.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} — {b.url}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {!window.studio ? (
+          <p className="small muted">
+            Abra o aplicativo desktop para conectar seu blog. Esta prévia não
+            acessa contas.
+          </p>
+        ) : (
+          !state.unlocked && (
+            <p className="small muted">
+              Desbloqueie o cofre na etapa 1 antes de conectar.
+            </p>
+          )
+        )}
+        <div className="actions">
+          <button
+            disabled={busy || !state.unlocked || !window.studio}
+            onClick={async () => {
+              setBloggerConnecting(true);
+              try {
+                await act("bloggerConnect");
+              } finally {
+                setBloggerConnecting(false);
+              }
+            }}
+          >
+            {bloggerConnecting
+              ? "Aguardando Google…"
+              : state.settings.bloggerBlogs?.length
+                ? "Reconectar Blogger"
+                : "Conectar Blogger com Google"}
+          </button>
+          {bloggerConnecting && (
+            <button onClick={() => act("cancel")}>Cancelar conexão</button>
+          )}
+          {state.settings.bloggerId && (
+            <button
+              disabled={busy || !state.unlocked}
+              onClick={() => act("bloggerTest")}
+            >
+              Verificar conexão
+            </button>
+          )}
+          {!!state.settings.bloggerBlogs?.length && (
+            <button
+              disabled={busy || !state.unlocked}
+              onClick={() => act("bloggerDisconnect")}
+            >
+              Desconectar Blogger
+            </button>
+          )}
+        </div>
+        <p className="small muted">
+          Neste alfa, sua conta Google precisa estar cadastrada como testadora.
+          O Google pode exigir nova autorização após sete dias. Desconectar
+          remove o token deste workspace; revogue o app na conta Google para
+          invalidar outras cópias.
+        </p>
+      </section>
       <section>
         <h2>Modo de trabalho</h2>
         <label className="check">
@@ -1077,99 +1419,6 @@ function SettingsPanel({
         </label>
       </section>
       <section>
-        <div className="split">
-          <h2>Blogger</h2>
-          <span className="tag">
-            {state.settings.bloggerId ? "Conectado" : "Não conectado"}
-          </span>
-        </div>
-        <p>
-          Entre com Google para conectar seu blog. A autorização permite
-          gerenciar o Blogger; cada publicação no aplicativo exige sua
-          aprovação.
-        </p>
-        {state.settings.bloggerUrl && (
-          <p>
-            {state.settings.bloggerName} — {state.settings.bloggerUrl}
-          </p>
-        )}
-        {!!state.settings.bloggerBlogs?.length && (
-          <label>
-            Blog de destino
-            <select
-              disabled={busy || !state.unlocked}
-              value={state.settings.bloggerId || ""}
-              onChange={(e) => act("bloggerSelect", { id: e.target.value })}
-            >
-              <option value="" disabled>
-                Escolha um blog
-              </option>
-              {state.settings.bloggerBlogs.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} — {b.url}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {!window.studio ? (
-          <p className="small muted">
-            Abra o aplicativo desktop para conectar seu blog. Esta prévia não
-            acessa contas.
-          </p>
-        ) : (
-          !state.unlocked && (
-            <p className="small muted">
-              Desbloqueie o cofre abaixo para conectar.
-            </p>
-          )
-        )}
-        <div className="actions">
-          <button
-            disabled={busy || !state.unlocked || !window.studio}
-            onClick={async () => {
-              setBloggerConnecting(true);
-              try {
-                await act("bloggerConnect");
-              } finally {
-                setBloggerConnecting(false);
-              }
-            }}
-          >
-            {bloggerConnecting
-              ? "Aguardando Google…"
-              : state.settings.bloggerBlogs?.length
-                ? "Reconectar Blogger"
-                : "Conectar Blogger com Google"}
-          </button>
-          {bloggerConnecting && (
-            <button onClick={() => act("cancel")}>Cancelar conexão</button>
-          )}
-          {state.settings.bloggerId && (
-            <button
-              disabled={busy || !state.unlocked}
-              onClick={() => act("bloggerTest")}
-            >
-              Verificar conexão
-            </button>
-          )}
-          {!!state.settings.bloggerBlogs?.length && (
-            <button
-              disabled={busy || !state.unlocked}
-              onClick={() => act("bloggerDisconnect")}
-            >
-              Desconectar Blogger
-            </button>
-          )}
-        </div>
-        <p className="small muted">
-          Neste alfa, sua conta Google precisa estar cadastrada como testadora.
-          O Google pode exigir nova autorização após sete dias. Desconectar
-          remove o token deste workspace; revogue o app na conta Google para
-          invalidar outras cópias.
-        </p>
-      </section>
-      <section>
         <h2>WordPress.com</h2>
         <p>
           Entre na sua conta e escolha o site que deseja conectar. Autorize
@@ -1192,7 +1441,7 @@ function SettingsPanel({
         )}
         {window.studio && !state.unlocked && (
           <p className="small muted">
-            Desbloqueie o cofre abaixo antes de conectar.
+            Desbloqueie o cofre na etapa 1 antes de conectar.
           </p>
         )}
         <div className="actions">
@@ -1272,89 +1521,6 @@ function SettingsPanel({
           </details>
         )}
       </section>
-      <section>
-        <div className="split">
-          <h2>Instagram</h2>
-          <span className="tag">
-            {state.settings.instagramUsername
-              ? `@${state.settings.instagramUsername}`
-              : "Não conectado"}
-          </span>
-        </div>
-        <p>
-          Conecte sua conta profissional e autorize o acesso ao perfil e a
-          publicação de conteúdos. Sua senha é informada somente no Instagram.
-        </p>
-        <p className="small muted">
-          Neste alfa, peça ao responsável pelo teste um convite e aceite-o nas
-          configurações do Instagram antes de conectar. A conta precisa ser de
-          criador ou empresa; contas pessoais comuns não são compatíveis.
-        </p>
-        {state.settings.instagramExpiresAt && (
-          <p className="small muted">
-            Autorização válida até{" "}
-            {new Date(state.settings.instagramExpiresAt).toLocaleDateString(
-              "pt-BR",
-            )}
-            . Reconecte se o acesso expirar ou for revogado.
-          </p>
-        )}
-        {!window.studio && (
-          <p className="small muted">
-            Esta prévia não conecta contas. Abra o aplicativo desktop para
-            autorizar o Instagram.
-          </p>
-        )}
-        {!state.unlocked && window.studio && (
-          <p className="small muted">
-            Desbloqueie o cofre abaixo para guardar a autorização com segurança.
-          </p>
-        )}
-        <div className="actions">
-          <button
-            className="primary"
-            disabled={busy || !window.studio || !state.unlocked}
-            onClick={async () => {
-              setConnecting(true);
-              try {
-                await act("instagramConnect");
-              } finally {
-                setConnecting(false);
-              }
-            }}
-          >
-            {connecting
-              ? "Aguardando autorização no navegador…"
-              : state.settings.instagramAccount
-                ? "Reconectar Instagram"
-                : "Conectar Instagram"}
-          </button>
-          {connecting && (
-            <button onClick={() => act("cancel")}>Cancelar conexão</button>
-          )}
-          {state.settings.instagramAccount && (
-            <>
-              <button
-                disabled={busy || !state.unlocked}
-                onClick={() => act("instagramTest")}
-              >
-                Verificar conexão
-              </button>
-              <button
-                disabled={busy || !state.unlocked}
-                onClick={() => act("instagramDisconnect")}
-              >
-                Desconectar deste workspace
-              </button>
-            </>
-          )}
-        </div>
-        <p className="small muted">
-          Cada publicação continua exigindo sua aprovação. Desconectar remove a
-          autorização deste workspace; para revogar também outras cópias, remova
-          o aplicativo nas configurações do Instagram.
-        </p>
-      </section>
       <button
         className="primary"
         disabled={busy}
@@ -1362,75 +1528,6 @@ function SettingsPanel({
       >
         Salvar configurações
       </button>
-      <section>
-        <div className="split">
-          <h2>Cofre de credenciais</h2>
-          <span className="tag">
-            {state.unlocked ? "Desbloqueado" : "Bloqueado"}
-          </span>
-        </div>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (
-              await act("vault", {
-                password,
-                values: { openrouter, wordpress },
-              })
-            ) {
-              setPassword("");
-              setKey("");
-              setWp("");
-            }
-          }}
-        >
-          <label>
-            Senha-mestra (mínimo de 10 caracteres)
-            <input
-              type="password"
-              autoComplete="off"
-              minLength={10}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          <div className="form-grid">
-            <label>
-              Chave OpenRouter
-              <input
-                type="password"
-                autoComplete="off"
-                value={openrouter}
-                onChange={(e) => setKey(e.target.value)}
-              />
-            </label>
-            <label>
-              Senha WordPress (hospedagem própria)
-              <input
-                type="password"
-                autoComplete="off"
-                value={wordpress}
-                onChange={(e) => setWp(e.target.value)}
-              />
-            </label>
-          </div>
-          <p className="small muted">
-            Campos vazios preservam as credenciais existentes. A senha-mestra
-            não é salva. Guarde-a para abrir o cofre em outro computador.
-          </p>
-          <div className="actions">
-            <button disabled={busy}>Desbloquear e salvar credenciais</button>
-            <button
-              type="button"
-              disabled={busy || !state.unlocked}
-              onClick={() => act("lock")}
-            >
-              Bloquear cofre
-            </button>
-          </div>
-        </form>
-      </section>
     </section>
   );
 }

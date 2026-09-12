@@ -73,6 +73,21 @@ test("exclusive workspace lock and non-empty backup protection", async (t) => {
     "keep",
   );
 });
+test("briefing corrections preserve revisions and revoke approval", async (t) => {
+  const { w } = await fixture(t);
+  const p = w.create("Teste", "Brief", "query");
+  await run(w, p.id);
+  w.approve(p.id, "export");
+  w.update(p.id, {
+    title: "Tema corrigido",
+    brief: "Outra orientação",
+    query: "new query",
+  });
+  assert.equal(p.revisions.length, 1);
+  assert.equal(p.query, "new query");
+  assert.equal(p.approval, null);
+  assert.throws(() => w.update(p.id, { title: " ", brief: "", query: "" }));
+});
 test("cancelled generation leaves a durable explicit status", async (t) => {
   const { w } = await fixture(t);
   const p = w.create("Teste", "Brief", "query");

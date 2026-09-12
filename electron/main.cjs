@@ -54,6 +54,10 @@ const actions = {
     w.create(title, brief, query);
     return w.snapshot();
   },
+  update: ({ id, ...fields }) => {
+    w.update(id, fields);
+    return w.snapshot();
+  },
   settings: ({ settings, memory }) => {
     const before = structuredClone(w.state);
     try {

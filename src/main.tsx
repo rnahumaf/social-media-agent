@@ -19,7 +19,7 @@ import {
   Send,
   Archive,
 } from "lucide-react";
-import type { State, Revision } from "./types";
+import type { State, Revision, Project } from "./types";
 import { preview } from "./preview";
 import "./style.css";
 const api = window.studio || preview;
@@ -331,6 +331,7 @@ function App() {
                     ["article", "Artigo", FileText],
                     ["social", "Carrossel", Images],
                     ["sources", "Fontes", Search],
+                    ["brief", "Briefing", BookOpen],
                     ["chat", "Conversa", MessageSquare],
                     ["review", "Aprovação", CheckCheck],
                   ].map(([key, label, Icon]: any) => (
@@ -464,6 +465,14 @@ function App() {
                       body="O agente social media adapta o artigo depois da redação."
                     />
                   ))}
+                {tab === "brief" && (
+                  <BriefEditor
+                    key={p.id}
+                    project={p}
+                    busy={busy}
+                    save={(fields) => act("update", { id, ...fields })}
+                  />
+                )}
                 {tab === "sources" && (
                   <div className="content-pad">
                     <h2>Dossiê de evidências</h2>
@@ -849,6 +858,71 @@ function CardImage({
         {index + 1} / {cards.length}
       </footer>
     </div>
+  );
+}
+function BriefEditor({
+  project,
+  busy,
+  save,
+}: {
+  project: Project;
+  busy: boolean;
+  save: (fields: object) => Promise<any>;
+}) {
+  const [title, setTitle] = useState(project.title),
+    [brief, setBrief] = useState(project.brief),
+    [query, setQuery] = useState(project.query),
+    [saved, setSaved] = useState(false);
+  return (
+    <form
+      className="content-pad"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setSaved(!!(await save({ title, brief, query })));
+      }}
+    >
+      <h2>Orientações da pauta</h2>
+      <label>
+        Tema
+        <input
+          required
+          maxLength={180}
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setSaved(false);
+          }}
+        />
+      </label>
+      <label>
+        Briefing
+        <textarea
+          value={brief}
+          onChange={(e) => {
+            setBrief(e.target.value);
+            setSaved(false);
+          }}
+        />
+      </label>
+      <label>
+        Termos de busca no PubMed
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSaved(false);
+          }}
+        />
+      </label>
+      <p className="muted small">
+        Salvar preserva os materiais existentes e invalida a aprovação. Gere uma
+        nova versão para aplicar estas orientações ao conteúdo.
+      </p>
+      <button className="primary" disabled={busy}>
+        Salvar briefing
+      </button>
+      {saved && <p role="status">Briefing salvo.</p>}
+    </form>
   );
 }
 function Empty({ title, body }: { title: string; body: string }) {

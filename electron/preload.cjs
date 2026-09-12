@@ -3,6 +3,7 @@ const methods = [
   "state",
   "open",
   "create",
+  "update",
   "settings",
   "vault",
   "lock",

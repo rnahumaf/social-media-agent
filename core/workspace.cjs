@@ -243,6 +243,19 @@ class Workspace {
     this.save();
     return r;
   }
+  update(id, fields) {
+    const p = this.project(id);
+    const changes = z
+      .object({
+        title: z.string().trim().min(1).max(180),
+        brief: text,
+        query: text,
+      })
+      .parse(fields);
+    Object.assign(p, changes);
+    p.approval = null;
+    this.save();
+  }
   approve(id, channel) {
     const p = this.project(id);
     if (!["export", "wordpress", "instagram"].includes(channel) || !current(p))

@@ -20,6 +20,12 @@ const save = () => {
   return structuredClone(state);
 };
 export const preview: API = {
+  update: async ({ id, ...fields }) => {
+    const p = state.projects.find((p) => p.id === id)!;
+    Object.assign(p, fields);
+    p.approval = null;
+    return save();
+  },
   state: async () => save(),
   open: async () => save(),
   create: async ({ title, brief, query }) => {

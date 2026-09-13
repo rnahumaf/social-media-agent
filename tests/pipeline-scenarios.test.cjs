@@ -150,12 +150,17 @@ test("editorial pipeline completes a matrix of valid, malformed and oversized so
         model: input.model,
         usage: {},
       };
-    if (input.model === "fixture/writer")
+    if (input.model === "fixture/writer") {
+      assert.match(input.system, /Defina uma tese central/);
+      assert.match(input.system, /Não use travessões como recurso estilístico/);
+      assert.match(input.system, /Não acrescente avisos defensivos/);
+      assert.match(input.system, /Preferências editoriais deste workspace:/);
       return {
         content: `# ${context.title}\n\nTexto fundamentado [PMID: 12345678].`,
         model: input.model,
         usage: {},
       };
+    }
     if (input.model === "fixture/reviewer")
       return { content: "Revisão concluída.", model: input.model, usage: {} };
     const scenario = scenarios.find((item) => item.title === context.title);

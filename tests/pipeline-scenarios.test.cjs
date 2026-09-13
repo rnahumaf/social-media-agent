@@ -88,7 +88,7 @@ const scenarios = [
 
 test("editorial pipeline completes a matrix of valid, malformed and oversized social outputs", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pipeline-matrix-"));
-  const workspace = await Workspace.open(root);
+  const workspace = await Workspace.open(root, {testMode:true});
   workspace.state.settings.demo = false;
   workspace.state.settings.models = {
     researcher: "fixture/research",

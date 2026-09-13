@@ -28,6 +28,9 @@ const methods = [
   "publish",
   "reconcile",
   "render",
+  "importImage",
+  "rewrite",
+  "knowledge",
 ];
 contextBridge.exposeInMainWorld(
   "studio",

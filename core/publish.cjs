@@ -42,7 +42,6 @@ async function wordpress(w, id) {
   const p = w.project(id),
     s = w.state.settings;
   assertApproved(p, s, "wordpress");
-  if (s.demo) throw Error("Desative a demonstração antes de publicar.");
   const revision = current(p);
   if (revision.demo)
     throw Error(
@@ -61,8 +60,8 @@ async function wordpress(w, id) {
       "Este projeto já tem publicação em outro site. Use uma nova pauta para outro destino.",
     );
   const access = wordpressAccess(w);
-  const { marked } = await import("marked");
-  const html = marked.parse(revision.article.replace(/</g, "&lt;"));
+  const { renderBlog } = await import("./blog-html.mjs");
+  const html = renderBlog(revision.article);
   p.publications.wordpress = {
     status: "sending",
     revision: revision.id,
@@ -117,7 +116,6 @@ async function instagram(w, id, urls = [], service) {
   const p = w.project(id),
     s = w.state.settings;
   assertApproved(p, s, "instagram");
-  if (s.demo) throw Error("Desative a demonstração antes de publicar.");
   const r = current(p);
   if (r.demo)
     throw Error(
@@ -143,15 +141,10 @@ async function instagram(w, id, urls = [], service) {
       throw Error(
         "Reconecte o Instagram para habilitar a hospedagem temporária dos cards.",
       );
-    const sharp = require("sharp");
-    const { svgCard } = require("./render.cjs");
+    const images = await approvedImages(w, p, r);
     try {
       for (let index = 0; index < r.cards.length; index++) {
-        const image = await sharp(
-          Buffer.from(svgCard(r.cards[index], index, r.cards.length)),
-        )
-          .jpeg({ quality: 95 })
-          .toBuffer();
+        const image = images[index];
         hosted.push(
           await media.upload(service, w.secrets.instagramMedia, image),
         );
@@ -170,8 +163,7 @@ async function instagram(w, id, urls = [], service) {
     throw Error("Informe uma URL pública JPEG por card, na mesma ordem.");
   try {
     urls.forEach(httpsBase);
-    const sharp = require("sharp");
-    const { svgCard } = require("./render.cjs");
+    const images = await approvedImages(w, p, r);
     for (let i = 0; i < urls.length; i++) {
       const response = await fetch(urls[i], {
         redirect: "error",
@@ -180,11 +172,7 @@ async function instagram(w, id, urls = [], service) {
       if (!response.ok)
         throw Error(`Não foi possível verificar o JPEG do card ${i + 1}.`);
       const remote = Buffer.from(await response.arrayBuffer());
-      const expected = await sharp(
-        Buffer.from(svgCard(r.cards[i], i, r.cards.length)),
-      )
-        .jpeg({ quality: 95 })
-        .toBuffer();
+      const expected = images[i];
       if (!remote.equals(expected))
         throw Error(
           `O JPEG público do card ${i + 1} difere da revisão aprovada. Hospede o arquivo exportado sem conversão.`,
@@ -285,4 +273,10 @@ async function instagram(w, id, urls = [], service) {
     );
   }
 }
-module.exports = { wordpressAccess, wordpress, instagram, httpsBase };
+async function approvedImages(w, p, r) {
+  const images = await require('./render.cjs').renderJPEGs(w.dir, r.cards, r.style);
+  const hashes = images.map(require('./assets.cjs').hash);
+  if (JSON.stringify(hashes) !== JSON.stringify(p.approvalMedia)) throw Error('A renderização mudou. Confira os cards e aprove novamente.');
+  return images;
+}
+module.exports = { wordpressAccess, wordpress, instagram, httpsBase, approvedImages };

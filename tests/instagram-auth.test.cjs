@@ -193,7 +193,7 @@ test("OAuth binds delivery to desktop verifier, consumes state and delivers once
 });
 test("OAuth token persists only in encrypted vault and can be removed after reopen", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ig-auth-"));
-  let w = await Workspace.open(dir);
+  let w = await Workspace.open(dir, {testMode:true});
   t.after(() => {
     w.close();
     fs.rmSync(dir, { recursive: true, force: true });
@@ -208,7 +208,7 @@ test("OAuth token persists only in encrypted vault and can be removed after reop
   );
   assert.ok(!JSON.stringify(w.snapshot()).includes("fixture-token"));
   w.close();
-  w = await Workspace.open(dir);
+  w = await Workspace.open(dir, {testMode:true});
   w.unlock("fixture-password");
   assert.equal(w.secrets.instagram, "fixture-token");
   w.storeSecret("instagram", null);

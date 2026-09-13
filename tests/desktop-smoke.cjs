@@ -97,6 +97,7 @@ global.fetch = async (url, options = {}) => {
     );
   return realFetch(url, options);
 };
+process.env.STUDIO_TEST_MODE = '1';
 require(process.env.STUDIO_TEST_ENTRY || "../electron/main.cjs");
 app.whenReady().then(async () => {
   try {

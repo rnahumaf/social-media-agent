@@ -10,7 +10,7 @@ const { instagram } = require("../core/publish.cjs");
 
 async function fixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "instagram-fixture-"));
-  const w = await Workspace.open(dir);
+  const w = await Workspace.open(dir, {testMode:true});
   t.after(() => {
     w.close();
     fs.rmSync(dir, { recursive: true, force: true });
@@ -84,7 +84,7 @@ test("Instagram blocks publication before approval and missing token before any 
   const { w, p, urls, images } = await fixture(t),
     calls = mockFetch(t, images);
   await assert.rejects(() => instagram(w, p.id, urls), /Aprove/);
-  w.approve(p.id, "instagram");
+  await w.approve(p.id, "instagram");
   w.secrets = null;
   await assert.rejects(() => instagram(w, p.id, urls), /token/);
   assert.equal(calls.length, 0);
@@ -93,7 +93,7 @@ test("Instagram blocks publication before approval and missing token before any 
 test("Instagram verifies exact JPEGs before creating ordered carousel containers", async (t) => {
   const { w, p, urls, images } = await fixture(t),
     calls = mockFetch(t, images);
-  w.approve(p.id, "instagram");
+  await w.approve(p.id, "instagram");
   const result = await instagram(w, p.id, urls);
   assert.equal(result.status, "published");
   assert.equal(result.remoteId, "published-fixture");
@@ -113,7 +113,7 @@ test("Instagram rejects changed public image without creating remote containers"
   const { w, p, urls, images } = await fixture(t);
   images[0] = Buffer.from("altered image");
   const calls = mockFetch(t, images);
-  w.approve(p.id, "instagram");
+  await w.approve(p.id, "instagram");
   await assert.rejects(() => instagram(w, p.id, urls), /difere/);
   assert.equal(calls.length, 1);
   assert.equal(p.publications.instagram, undefined);
@@ -122,7 +122,7 @@ test("Instagram rejects changed public image without creating remote containers"
 test("Instagram keeps container IDs and blocks retry after uncertain publish", async (t) => {
   const { w, p, urls, images } = await fixture(t),
     calls = mockFetch(t, images, true);
-  w.approve(p.id, "instagram");
+  await w.approve(p.id, "instagram");
   await assert.rejects(() => instagram(w, p.id, urls), /não confirmada/);
   assert.equal(p.publications.instagram.status, "uncertain");
   assert.equal(p.publications.instagram.containerId, "container-5");
@@ -133,7 +133,7 @@ test("Instagram keeps container IDs and blocks retry after uncertain publish", a
 test("Instagram hosts approved cards automatically and removes temporary copies after publishing", async (t) => {
   const { w, p, images } = await fixture(t);
   w.secrets.instagramMedia = "media-credential-" + "x".repeat(50);
-  w.approve(p.id, "instagram");
+  await w.approve(p.id, "instagram");
   const original = global.fetch;
   t.after(() => {
     global.fetch = original;

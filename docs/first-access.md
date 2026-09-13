@@ -1,6 +1,14 @@
-# Primeiro acesso — beta 0.1.0-beta.2
+# Primeiro acesso — código atual da beta
 
-Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. A tela **Modelos e conexões** apresenta três etapas. Você não precisa instalar Node, criar aplicativos de desenvolvedor ou copiar tokens. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
+Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. Clique em **Nova pauta**, selecione Blog, Instagram ou ambos e escolha como começar. **Escrever manualmente** abre os editores imediatamente e dispensa chave OpenRouter. **Criar com IA** usa os modelos configurados; se faltar a chave, o aplicativo indica onde configurá-la e mantém o editor disponível.
+
+No blog, escolha **Visual**, **Markdown** ou **Prévia**. O texto continua salvo em Markdown; versões com formatação não suportada abrem em Markdown para preservar o original. No Instagram, edite a legenda, acrescente cards e use as miniaturas para selecionar qual editar. Os controles permitem duplicar, remover e ordenar cards, importar imagens JPEG, PNG ou WebP e ajustar enquadramento, cores, fonte e assinatura. **Salvar como meu padrão** guarda o estilo para outras pautas.
+
+**Reescrever com IA** funciona no artigo, na legenda e no card selecionado. Compare a sugestão com o original antes de aplicar. Se o texto mudar durante a chamada, descarte a sugestão e solicite outra. **Salvar revisão** preserva a versão anterior e invalida a aprovação. Em **Revisar e publicar**, aprove e publique cada destino separadamente, mesmo quando ambas as contas estiverem conectadas.
+
+Abra **Conhecimento** na navegação ou **Preferências do autor** perto dos editores. Salve orientações gerais, preferências de blog e Instagram e exemplos da sua escrita. Há um perfil de autor por workspace.
+
+A configuração abaixo é necessária para usar IA ou publicar em contas externas. A tela **Modelos e conexões** apresenta as conexões disponíveis. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
 
 1. **Proteja suas conexões.** Crie uma senha-mestra com pelo menos dez caracteres. Deixe **Lembrar neste computador** marcado para reabrir este workspace automaticamente na mesma conta do sistema. Para gerar conteúdo no modo conectado, informe também sua chave OpenRouter e clique em **Criar ou desbloquear cofre**. Guarde a senha: uma cópia levada a outro computador continuará pedindo-a e não há recuperação. O aplicativo mostra separadamente se o cofre está desbloqueado e se a chave OpenRouter está salva.
 2. **Conecte o Instagram.** Use uma conta profissional de criador ou empresa. Clique em **Conectar Instagram**, entre na sua própria conta e autorize perfil e publicação no navegador. Ao retornar, confira seu @ e use **Verificar conexão**. Durante a análise de acesso da Meta, o conector permanece disponível somente para contas com função no aplicativo; essa limitação será removida na publicação.
@@ -20,9 +28,9 @@ Os executáveis ainda não têm assinatura de código; o pacote macOS também n�
 
 Para WordPress.com, use **Conectar WordPress.com**, autorize posts e mídia e confira o site escolhido. O fluxo foi validado no plano gratuito. WordPress com hospedagem própria usa a seção específica e senha de aplicativo.
 
-Descreva o tema, o público e o objetivo da pauta. O pesquisador decide os termos de busca no PubMed; você pode conferir a consulta em Fontes.
+Descreva o tema, o público e o objetivo da pauta. Em **Ferramentas de pesquisa**, escolha PubMed, web aberta ou ambos. Em **Briefing, canais e pesquisa**, você pode alterar essa seleção para a pauta. O pesquisador escolhe uma ferramenta permitida e registra a consulta e as fontes em **Fontes**. Novos workspaces oferecem as duas buscas; os antigos começam com PubMed. Web aberta usa OpenRouter/Exa e consome créditos da sua conta. Sem fontes reais, a geração para; a escrita manual e a reescrita não exigem busca externa.
 
-Para gerar conteúdo real, informe sua chave OpenRouter no cofre, escolha os modelos e desative demonstração. Ao abrir um workspace existente pela primeira vez nesta versão, informe a senha e mantenha **Lembrar neste computador** marcado. Nas próximas aberturas, o sistema operacional a recupera para desbloquear o cofre. Isso não adiciona uma chave OpenRouter que nunca foi salva. Revise e aprove cada destino antes de publicar. O aplicativo hospeda os JPEGs do Instagram temporariamente e remove as cópias depois que a Meta processa o carrossel. Se a conexão veio de uma versão anterior, reconecte o Instagram uma vez para ativar esse recurso.
+Para gerar conteúdo com IA, informe sua chave OpenRouter no cofre e escolha os modelos. Não há opção pública de pesquisa demonstrativa. Materiais demonstrativos antigos continuam identificados e bloqueados para publicação. Ao abrir um workspace existente pela primeira vez nesta versão, informe a senha e mantenha **Lembrar neste computador** marcado. Nas próximas aberturas, o sistema operacional a recupera para desbloquear o cofre. Isso não adiciona uma chave OpenRouter que nunca foi salva. O aplicativo hospeda os JPEGs do Instagram temporariamente e remove as cópias depois que a Meta processa o carrossel. Se a conexão veio de uma versão anterior, reconecte o Instagram uma vez para ativar esse recurso.
 
 Se o OpenRouter limitar uma chamada, o aplicativo tenta novamente após uma espera curta e pode usar outro provedor do mesmo modelo. O modelo selecionado não muda. Se o limite persistir, aguarde um minuto e confira os limites da chave e o saldo da conta OpenRouter.
 

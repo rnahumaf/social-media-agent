@@ -8,7 +8,7 @@ const { run } = require("../core/pipeline.cjs");
 const providers = require("../core/providers.cjs");
 async function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "research-test-"));
-  const w = await Workspace.open(root);
+  const w = await Workspace.open(root, {testMode:true});
   w.state.settings.demo = false;
   w.state.settings.models = {
     researcher: "research-model",
@@ -85,7 +85,7 @@ test("researcher plans from user demand before fetching and preserves generated 
   const query = p.query;
   assert.equal(p.revisions[0].sources[0].pmid, "123");
   w.close();
-  const reopened = await Workspace.open(folder);
+  const reopened = await Workspace.open(folder, {testMode:true});
   try {
     assert.equal(reopened.project(p.id).query, query);
     assert.equal(reopened.project(p.id).runs[0].query, query);
@@ -203,7 +203,7 @@ test("failed work persists and resumes from its saved stage with user steering",
 
   const folder = w.dir;
   w.close();
-  const reopened = await Workspace.open(folder);
+  const reopened = await Workspace.open(folder, {testMode:true});
   reopened.secrets = { openrouter: "fixture-key" };
   try {
     let pubmedCalls = 0;
@@ -283,7 +283,7 @@ test("an unfinished legacy run becomes a resumable session without losing source
   const folder = w.dir;
   w.close();
 
-  const reopened = await Workspace.open(folder);
+  const reopened = await Workspace.open(folder, {testMode:true});
   try {
     const migrated = reopened.project(p.id);
     assert.equal(migrated.status, "paused");

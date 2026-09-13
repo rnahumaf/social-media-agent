@@ -1,7 +1,7 @@
 name: Beta checks
 on: [push, pull_request, workflow_dispatch]
 permissions:
-  contents: read
+  contents: write
 jobs:
   check:
     strategy:
@@ -30,7 +30,20 @@ jobs:
       - run: npm audit --omit=dev
       - run: npx install-electron
       - if: matrix.platform == 'windows'
+        run: npm run test:desktop
+      - if: matrix.platform == 'windows'
+        run: npm run test:editorial-desktop
+      - if: matrix.platform == 'windows'
         run: npx electron-builder --win portable --x64 --publish never
+      - if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/v')
+        name: Upload Windows release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Get-ChildItem -LiteralPath release -Filter *.exe -File | ForEach-Object {
+            gh release upload $env:GITHUB_REF_NAME $_.FullName --clobber
+          }
       - if: matrix.platform == 'macos' && matrix.arch == 'arm64'
         run: npx electron-builder --mac zip --arm64 --publish never
       - if: matrix.platform == 'macos' && matrix.arch == 'x64'
@@ -42,6 +55,11 @@ jobs:
           app_path="$(find release -maxdepth 2 -type d -name 'Social Media Agent.app' -print -quit)"
           test -n "$app_path"
           test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app_path/Contents/Info.plist")" = "12.0"
+      - if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/v')
+        name: Upload macOS release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" release/*.zip --clobber
       - uses: actions/upload-artifact@v4
         with:
           name: beta-${{ matrix.platform }}-${{ matrix.arch }}

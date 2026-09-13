@@ -1,10 +1,52 @@
-export type Card = { title: string; body: string };
+export type Channel = "blog" | "instagram";
+export type ResearchProvider = "pubmed" | "web";
+export type Knowledge = {
+  general: string;
+  blog: string;
+  instagram: string;
+  examples: string;
+};
+export type CardStyle = {
+  layout: "text" | "split" | "background";
+  background: string;
+  titleColor: string;
+  textColor: string;
+  accent: string;
+  font: "sans" | "serif";
+  signature: string;
+};
+export type CardImageRef = {
+  path: string;
+  hash: string;
+  x: number;
+  y: number;
+  zoom: number;
+};
+export type Card = { title: string; body: string; image?: CardImageRef };
+export type RewriteRequest = {
+  id: string;
+  target: "article" | "caption" | "card";
+  baseRevisionId: string;
+  text?: string;
+  card?: Card;
+  instruction: string;
+};
+export type RewriteProposal = {
+  target: RewriteRequest["target"];
+  baseRevisionId: string;
+  inputHash: string;
+  value: string | Card;
+};
 export type Revision = {
   id: string;
   article: string;
   caption: string;
   cards: Card[];
   createdAt: string;
+  style?: CardStyle;
+  demo?: boolean;
+  origin?: "manual" | "ai" | "demo";
+  sources?: Project["sources"];
 };
 export type RunEvent = {
   id: string;
@@ -26,6 +68,12 @@ export type RunSession = {
   events: RunEvent[];
   artifacts?: {
     query?: string;
+    searches?: {
+      provider: ResearchProvider;
+      query: string;
+      count: number;
+      at: string;
+    }[];
     sources?: Project["sources"];
     dossier?: string;
     article?: string;
@@ -39,16 +87,23 @@ export type RunSession = {
     }[];
   };
   revisionId?: string;
+  channels?: Channel[];
+  selectedProjectChannels?: Channel[];
+  baseRevisionId?: string;
 };
 export type Project = {
   id: string;
   title: string;
   brief: string;
+  channels?: Channel[];
+  research?: ResearchProvider[] | null;
   query: string;
   status: string;
   sources: {
     title: string;
-    pmid: string;
+    pmid?: string;
+    id?: string;
+    provider?: ResearchProvider;
     abstract: string;
     access: string;
     url: string;
@@ -84,6 +139,8 @@ export type State = {
   format: 1;
   name: string;
   memory: string;
+  knowledge?: Knowledge;
+  editorialVersion?: 2;
   unlocked?: boolean;
   vaultRemembered?: boolean;
   vaultRememberError?: string;
@@ -91,6 +148,8 @@ export type State = {
   instagramMediaConfigured?: boolean;
   settings: {
     demo: boolean;
+    research?: ResearchProvider[];
+    cardStyle?: CardStyle;
     models: Record<string, string>;
     wordpressUrl: string;
     wordpressUser: string;

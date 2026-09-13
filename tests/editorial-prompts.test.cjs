@@ -4,6 +4,7 @@ const {
   instructions,
   systemFor,
   chatInstruction,
+  naturalWriting,
 } = require("../core/editorial-prompts.cjs");
 
 test("redator recebe por padrão um contrato completo de escrita natural", () => {
@@ -14,7 +15,8 @@ test("redator recebe por padrão um contrato completo de escrita natural", () =>
   assert.match(prompt, /Não use travessões como recurso estilístico/);
   assert.match(prompt, /Não acrescente avisos defensivos/);
   assert.match(prompt, /não transforme associação em causalidade/);
-  assert.match(prompt, /\[PMID: número\] perto da afirmação/);
+  assert.match(prompt, /\[PMID: número\].*perto da afirmação/);
+  assert.match(prompt, /link Markdown da fonte web/);
   assert.match(prompt, /Preferências editoriais deste workspace:/);
   assert.match(prompt, /Prefira exemplos veterinários\.$/);
 });
@@ -22,12 +24,12 @@ test("redator recebe por padrão um contrato completo de escrita natural", () =>
 test("adaptação social e revisão preservam o mesmo padrão editorial", () => {
   assert.ok(
     instructions.social.startsWith(
-      instructions.writer.split("\n\nEscreva um artigo")[0],
+      naturalWriting,
     ),
   );
   assert.ok(
     instructions.reviewer.startsWith(
-      instructions.writer.split("\n\nEscreva um artigo")[0],
+      naturalWriting,
     ),
   );
   assert.match(

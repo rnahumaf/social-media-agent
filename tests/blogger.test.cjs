@@ -8,7 +8,7 @@ const { Workspace, current } = require("../core/workspace.cjs");
 const { run } = require("../core/pipeline.cjs");
 test("Blogger binds approval to selected blog, refreshes encrypted credential and blocks uncertain retry", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "blogger-fixture-"));
-  const w = await Workspace.open(root);
+  const w = await Workspace.open(root, {testMode:true});
   const original = global.fetch;
   t.after(() => {
     global.fetch = original;
@@ -74,7 +74,7 @@ test("Blogger binds approval to selected blog, refreshes encrypted credential an
     blogger.publish(w, p.id, "https://auth.example.test"),
     /Aprove/,
   );
-  w.approve(p.id, "blogger");
+  await w.approve(p.id, "blogger");
   w.state.settings.bloggerId = "999";
   await assert.rejects(
     blogger.publish(w, p.id, "https://auth.example.test"),
@@ -92,7 +92,7 @@ test("Blogger binds approval to selected blog, refreshes encrypted credential an
       .includes("refresh-fixture"),
   );
   w.revise(p.id, { ...current(p), article: "Alteração" });
-  w.approve(p.id, "blogger");
+  await w.approve(p.id, "blogger");
   uncertain = true;
   await assert.rejects(
     blogger.publish(w, p.id, "https://auth.example.test"),

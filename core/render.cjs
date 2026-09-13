@@ -63,13 +63,12 @@ const layouts = [
     bodyLineHeight: 41,
   },
 ];
-function cardLayout(card) {
+function cardLayout(card, style) {
   if (
     !card ||
     typeof card.title !== "string" ||
     typeof card.body !== "string" ||
-    !card.title.trim() ||
-    !card.body.trim() ||
+    (!card.title.trim() && !card.body.trim() && !card.image) ||
     card.title.length > 90 ||
     card.body.length > 420
   )
@@ -79,7 +78,9 @@ function cardLayout(card) {
   for (const layout of layouts) {
     const title = wrap(card.title, layout.titleWidth);
     const body = wrap(card.body, layout.bodyWidth);
-    const bodyY = 335 + title.length * layout.titleLineHeight;
+    const bodyY =
+      (style?.layout === "split" && card.image ? 710 : 335) +
+      title.length * layout.titleLineHeight;
     const bottom = bodyY + (body.length - 1) * layout.bodyLineHeight;
     if (title.length <= 5 && body.length <= 13 && bottom <= 1160)
       return { ...layout, title, body, bodyY };
@@ -88,9 +89,46 @@ function cardLayout(card) {
     "O texto não cabe no card com tamanho legível. Divida o conteúdo em mais cards.",
   );
 }
-function svgCard(card, index, total) {
-  const layout = cardLayout(card);
+function svgCard(card, index, total, style, dir) {
+  const {
+    defaultStyle,
+    styleSchema,
+    imageSchema,
+  } = require("./editorial-model.cjs");
+  const s = styleSchema.parse(style || defaultStyle);
+  const layout = cardLayout(card, s);
   const { title, body } = layout;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350"><rect width="1080" height="1350" fill="#f5f3ed"/><rect x="80" y="96" width="64" height="8" fill="#226453"/><text x="80" y="164" font-family="Arial" font-size="24" fill="#52625c">ESTÚDIO EDITORIAL</text><g font-family="Arial" fill="#193d32" font-weight="bold" font-size="${layout.titleSize}">${title.map((line, i) => `<text x="80" y="${295 + i * layout.titleLineHeight}">${escape(line)}</text>`).join("")}</g><g font-family="Arial" font-size="${layout.bodySize}" fill="#394e46">${body.map((line, i) => `<text x="80" y="${layout.bodyY + i * layout.bodyLineHeight}">${escape(line)}</text>`).join("")}</g><line x1="80" x2="1000" y1="1220" y2="1220" stroke="#ced6ce"/><text x="80" y="1272" font-family="Arial" font-size="24" fill="#52625c">${index + 1} / ${total}</text></svg>`;
+  let photo = "";
+  if (card.image) {
+    const im = imageSchema.parse(card.image);
+    const bytes = require("./assets.cjs").readImage(dir, im);
+    if (s.layout !== "text") {
+      const y = s.layout === "split" ? 210 : 0,
+        h = s.layout === "split" ? 400 : 1350;
+      const pngWidth = bytes.readUInt32BE(16),
+        pngHeight = bytes.readUInt32BE(20);
+      const scale = Math.max(1080 / pngWidth, h / pngHeight) * im.zoom;
+      const w = pngWidth * scale,
+        ih = pngHeight * scale;
+      photo = `<defs><clipPath id="photo"><rect width="1080" height="${h}" y="${y}"/></clipPath></defs><image href="data:image/png;base64,${bytes.toString("base64")}" x="${((1080 - w) * im.x) / 100}" y="${y + ((h - ih) * im.y) / 100}" width="${w}" height="${ih}" clip-path="url(#photo)"/>`;
+      if (s.layout === "background")
+        photo += `<rect width="1080" height="1350" fill="${s.background}" opacity="0.78"/>`;
+    }
+  }
+  const font = s.font === "serif" ? "Georgia" : "Arial";
+  const titleY = s.layout === "split" && card.image ? 670 : 295;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350"><rect width="1080" height="1350" fill="${s.background}"/>${photo}<rect x="80" y="96" width="64" height="8" fill="${s.accent}"/><text x="80" y="164" font-family="${font}" font-size="24" fill="${s.textColor}">${escape(s.signature)}</text><g font-family="${font}" fill="${s.titleColor}" font-weight="bold" font-size="${layout.titleSize}">${title.map((line, i) => `<text x="80" y="${titleY + i * layout.titleLineHeight}">${escape(line)}</text>`).join("")}</g><g font-family="${font}" font-size="${layout.bodySize}" fill="${s.textColor}">${body.map((line, i) => `<text x="80" y="${layout.bodyY + i * layout.bodyLineHeight}">${escape(line)}</text>`).join("")}</g><line x1="80" x2="1000" y1="1220" y2="1220" stroke="${s.accent}"/><text x="80" y="1272" font-family="${font}" font-size="24" fill="${s.textColor}">${index + 1} / ${total}</text></svg>`;
 }
-module.exports = { svgCard, wrap, cardLayout };
+async function renderJPEGs(dir, cards, style) {
+  if (!Array.isArray(cards) || cards.length > 10)
+    throw Error("Cards inválidos.");
+  const sharp = require("sharp");
+  return Promise.all(
+    cards.map((card, index) =>
+      sharp(Buffer.from(svgCard(card, index, cards.length, style, dir)))
+        .jpeg({ quality: 95 })
+        .toBuffer(),
+    ),
+  );
+}
+module.exports = { svgCard, wrap, cardLayout, renderJPEGs };

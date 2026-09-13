@@ -12,7 +12,9 @@ const path = require("node:path"),
 const { Workspace, current, assertApproved } = require("../core/workspace.cjs");
 const { run } = require("../core/pipeline.cjs");
 const { chatInstruction } = require("../core/editorial-prompts.cjs");
-const { svgCard } = require("../core/render.cjs");
+const { renderJPEGs } = require("../core/render.cjs");
+const editorial = require("../core/editorial-model.cjs");
+const testMode = !app.isPackaged && process.env.STUDIO_TEST_MODE === "1";
 const providers = require("../core/providers.cjs");
 const publishers = require("../core/publish.cjs");
 const { createRememberedVaults } = require("./remembered-vaults.cjs");
@@ -177,20 +179,48 @@ const actions = {
     w.save();
     return w.snapshot();
   },
-  render: async ({ cards }) => {
+  render: async ({ cards, style }) => {
     if (!Array.isArray(cards) || cards.length > 10)
       throw Error("Cards inválidos.");
-    const sharp = require("sharp");
-    return Promise.all(
-      cards.map(
-        async (c, i) =>
-          "data:image/jpeg;base64," +
-          (
-            await sharp(Buffer.from(svgCard(c, i, cards.length)))
-              .jpeg({ quality: 95 })
-              .toBuffer()
-          ).toString("base64"),
-      ),
+    const shown = cards.map((card) =>
+      !card.title?.trim() && !card.body?.trim() && !card.image
+        ? {
+            ...card,
+            title: "Seu próximo card",
+            body: "Escreva o texto ou adicione uma imagem.",
+          }
+        : card,
+    );
+    return (await renderJPEGs(w.dir, shown, style)).map(
+      (bytes) => "data:image/jpeg;base64," + bytes.toString("base64"),
+    );
+  },
+  importImage: async () => {
+    const result = await dialog.showOpenDialog(win, {
+      title: "Adicionar imagem ao card",
+      properties: ["openFile"],
+      filters: [
+        { name: "Imagens", extensions: ["jpg", "jpeg", "png", "webp"] },
+      ],
+    });
+    if (result.canceled) return null;
+    return require("../core/assets.cjs").importImage(
+      w.dir,
+      result.filePaths[0],
+    );
+  },
+  knowledge: ({ knowledge }) => {
+    w.state.knowledge = editorial.knowledgeSchema.parse(knowledge);
+    w.state.memory = w.state.knowledge.general;
+    w.save();
+    return w.snapshot();
+  },
+  rewrite: async (payload) => {
+    controller = new AbortController();
+    return require("../core/rewrite.cjs").rewrite(
+      w,
+      payload,
+      controller.signal,
     );
   },
   state: () => w?.snapshot() || null,
@@ -202,7 +232,7 @@ const actions = {
     if (result.canceled) return w?.snapshot() || null;
     const dir = result.filePaths[0];
     if (w?.dir === dir) return w.snapshot();
-    const next = await Workspace.open(dir);
+    const next = await Workspace.open(dir, { testMode });
     w?.close();
     w = next;
     w.vaultRemembered = rememberedVaults.has(dir);
@@ -244,8 +274,9 @@ const actions = {
     w.save();
     return w.snapshot();
   },
-  create: ({ title, brief, query }) => {
-    w.create(title, brief, query);
+  create: ({ title, brief, query, channels, research, manual }) => {
+    if (!testMode) editorial.channelsSchema.parse(channels);
+    w.create(title, brief, query, { channels, research, manual });
     return w.snapshot();
   },
   update: ({ id, ...fields }) => {
@@ -255,8 +286,15 @@ const actions = {
   settings: ({ settings, memory }) => {
     const before = structuredClone(w.state);
     try {
-      w.state.settings = { ...w.state.settings, ...settings };
-      w.state.memory = memory;
+      w.state.settings = {
+        ...w.state.settings,
+        ...settings,
+        demo: testMode && !!settings.demo,
+      };
+      if (memory !== undefined) {
+        w.state.memory = memory;
+        w.state.knowledge.general = memory;
+      }
       for (const p of w.state.projects) {
         if (
           before.settings.wordpressUrl !== settings.wordpressUrl ||
@@ -314,24 +352,28 @@ const actions = {
     return w.snapshot();
   },
   models: () => providers.models(),
-  run: async ({ id, resume = false, instruction = "" }) => {
+  run: async ({ id, resume = false, instruction = "", targets }) => {
     controller = new AbortController();
     return run(w, id, {
       signal: controller.signal,
       resume: !!resume,
       instruction,
+      targets,
     });
   },
   cancel: () => {
     controller?.abort();
     return true;
   },
-  edit: ({ id, content }) => {
-    w.revise(id, content);
+  edit: ({ id, content, baseRevisionId }) => {
+    const previous = current(w.project(id));
+    if (baseRevisionId !== undefined && previous?.id !== baseRevisionId)
+      throw Error("A revisão mudou. Reabra a versão atual antes de salvar.");
+    w.revise(id, { ...content, demo: !!previous?.demo, origin: "manual" });
     return w.snapshot();
   },
-  approve: ({ id, channel }) => {
-    w.approve(id, channel);
+  approve: async ({ id, channel }) => {
+    await w.approve(id, channel);
     return w.snapshot();
   },
   chat: async ({ id, message }) => {
@@ -348,27 +390,28 @@ const actions = {
       at: new Date().toISOString(),
     });
     w.save();
-    const result = w.state.settings.demo
-      ? {
-          content:
-            "Sua orientação ficou registrada neste projeto. Ao gerar uma nova versão, os agentes receberão as mensagens recentes. Este modo demonstra o fluxo sem chamar modelos.",
-        }
-      : await providers.complete({
-          key: w.secrets?.openrouter,
-          model: w.state.settings.models.writer,
-          system:
-            chatInstruction +
-            "\n\nContexto editorial deste projeto:\n" +
-            JSON.stringify({
-              brief: p.brief,
-              revision: current(p),
-              memory: w.state.memory,
-            }),
-          messages: p.messages
-            .filter((m) => !m.internal && !m.agent)
-            .slice(-20)
-            .map(({ role, content }) => ({ role, content })),
-        });
+    const result =
+      testMode && w.state.settings.demo
+        ? {
+            content:
+              "Sua orientação ficou registrada neste projeto. Ao gerar uma nova versão, os agentes receberão as mensagens recentes. Este modo demonstra o fluxo sem chamar modelos.",
+          }
+        : await providers.complete({
+            key: w.secrets?.openrouter,
+            model: w.state.settings.models.writer,
+            system:
+              chatInstruction +
+              "\n\nContexto editorial deste projeto:\n" +
+              JSON.stringify({
+                brief: p.brief,
+                revision: current(p),
+                memory: editorial.knowledgeFor(w.state, "writer"),
+              }),
+            messages: p.messages
+              .filter((m) => !m.internal && !m.agent)
+              .slice(-20)
+              .map(({ role, content }) => ({ role, content })),
+          });
     p.messages.push({
       role: "assistant",
       content: result.content,
@@ -397,20 +440,33 @@ const actions = {
     const dir = result.filePaths[0];
     if (fs.readdirSync(dir).length) throw Error("Escolha uma pasta vazia.");
     const r = current(p);
-    const sharp = require("sharp");
-    const rendered = await Promise.all(
-      r.cards.map((c, i) =>
-        sharp(Buffer.from(svgCard(c, i, r.cards.length)))
-          .jpeg({ quality: 95 })
-          .toBuffer(),
-      ),
-    );
-    fs.writeFileSync(path.join(dir, "artigo.md"), r.article);
-    fs.writeFileSync(path.join(dir, "legenda.txt"), r.caption);
+    const selected = editorial.channels(p);
+    const rendered = selected.includes("instagram")
+      ? await publishers.approvedImages(w, p, r)
+      : [];
+    if (selected.includes("blog"))
+      fs.writeFileSync(path.join(dir, "artigo.md"), r.article);
+    if (selected.includes("instagram"))
+      fs.writeFileSync(path.join(dir, "legenda.txt"), r.caption);
     fs.writeFileSync(
       path.join(dir, "revisao.json"),
       JSON.stringify(
-        { revision: r, sources: r.sources || p.sources, approval: p.approval },
+        {
+          title: p.title,
+          channels: selected,
+          revision: {
+            id: r.id,
+            createdAt: r.createdAt,
+            origin: r.origin,
+            demo: r.demo,
+            ...(selected.includes("blog") ? { article: r.article } : {}),
+            ...(selected.includes("instagram")
+              ? { caption: r.caption, cards: r.cards, style: r.style }
+              : {}),
+          },
+          sources: r.sources || p.sources,
+          approval: p.approval?.export,
+        },
         null,
         2,
       ),
@@ -487,8 +543,30 @@ app.whenReady().then(() => {
     },
   });
   win.setMenuBarVisibility(false);
-  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const link = new URL(url);
+      if (
+        ["https:", "http:"].includes(link.protocol) &&
+        !link.username &&
+        !link.password
+      )
+        void shell.openExternal(link.href);
+    } catch {}
+    return { action: "deny" };
+  });
   win.webContents.on("will-navigate", (e) => e.preventDefault());
+  win.webContents.on("will-prevent-unload", (event) => {
+    const response = dialog.showMessageBoxSync(win, {
+      type: "question",
+      buttons: ["Continuar editando", "Descartar alterações"],
+      defaultId: 0,
+      cancelId: 0,
+      message: "Há alterações ainda não salvas.",
+      detail: "Ao sair desta tela, essas alterações serão descartadas.",
+    });
+    if (response === 1) event.preventDefault();
+  });
   for (const [name, action] of Object.entries(actions))
     ipcMain.handle("studio:" + name, async (event, payload) => {
       if (
@@ -522,7 +600,7 @@ app.whenReady().then(() => {
   });
 });
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => {
+app.on("will-quit", () => {
   if (!busy && w) {
     w.close();
     w = null;

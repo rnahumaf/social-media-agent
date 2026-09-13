@@ -9,7 +9,7 @@ const { svgCard, cardLayout } = require("../core/render.cjs");
 const { wordpress, httpsBase } = require("../core/publish.cjs");
 async function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "editorial-test-"));
-  const w = await Workspace.open(path.join(root, "source"));
+  const w = await Workspace.open(path.join(root, "source"), {testMode:true});
   t.after(() => {
     try {
       w.close();
@@ -30,7 +30,7 @@ test("WordPress.com uses the selected site and disables automatic social sharing
   });
   current(p).demo = false;
   w.secrets = { wordpressCom: "fixture" };
-  w.approve(p.id, "wordpress");
+  await w.approve(p.id, "wordpress");
   const original = global.fetch;
   t.after(() => {
     global.fetch = original;
@@ -51,7 +51,7 @@ test("WordPress.com uses the selected site and disables automatic social sharing
   await wordpress(w, p.id);
   assert.equal(calls.length, 1);
   w.revise(p.id, { ...current(p), article: "Revisão" });
-  w.approve(p.id, "wordpress");
+  await w.approve(p.id, "wordpress");
   await wordpress(w, p.id);
   assert.deepEqual(calls, [
     "https://public-api.wordpress.com/rest/v1.1/sites/456/posts/new",
@@ -67,11 +67,11 @@ test("demo survives a workspace transfer with revisions, conversation and encryp
   );
   w.unlock("senha-ficticia-longa", { openrouter: "test-key-never-real" });
   await run(w, p.id);
-  w.approve(p.id, "export");
+  await w.approve(p.id, "export");
   w.backup(path.join(root, "copy"));
   assert.equal(p.revisions.length, 1);
   assert.equal(p.runs.filter((r) => r.status === "completed").length, 4);
-  const copy = await Workspace.open(path.join(root, "copy"));
+  const copy = await Workspace.open(path.join(root, "copy"), {testMode:true});
   try {
     assert.deepEqual(copy.state, w.state);
     assert.equal(copy.secrets, null);
@@ -168,18 +168,18 @@ test("revision edits and destination changes invalidate approval", async (t) => 
   const { w } = await fixture(t);
   const p = w.create("Teste", "Brief", "query");
   await run(w, p.id);
-  w.approve(p.id, "wordpress");
+  await w.approve(p.id, "wordpress");
   assertApproved(p, w.state.settings, "wordpress");
   w.state.settings.wordpressUrl = "https://changed.example";
   assert.throws(() => assertApproved(p, w.state.settings, "wordpress"));
-  w.approve(p.id, "export");
+  await w.approve(p.id, "export");
   w.revise(p.id, { ...current(p), article: "Alterado" });
   assert.equal(p.revisions.length, 2);
   assert.throws(() => assertApproved(p, w.state.settings, "export"));
 });
 test("exclusive workspace lock and non-empty backup protection", async (t) => {
   const { w, root } = await fixture(t);
-  await assert.rejects(() => Workspace.open(w.dir), /em uso/);
+  await assert.rejects(() => Workspace.open(w.dir, {testMode:true}), /em uso/);
   assert.throws(() => w.backup(w.dir));
   fs.mkdirSync(path.join(root, "occupied"));
   fs.writeFileSync(path.join(root, "occupied", "keep"), "keep");
@@ -193,7 +193,7 @@ test("briefing corrections preserve revisions and revoke approval", async (t) =>
   const { w } = await fixture(t);
   const p = w.create("Teste", "Brief", "query");
   await run(w, p.id);
-  w.approve(p.id, "export");
+  await w.approve(p.id, "export");
   w.update(p.id, {
     title: "Tema corrigido",
     brief: "Outra orientação",
@@ -268,7 +268,7 @@ test("uncertain WordPress response blocks duplicate requests", async (t) => {
   w.state.settings.wordpressUrl = "https://example.com";
   w.state.settings.wordpressUser = "fixture";
   w.secrets = { wordpress: "fixture" };
-  w.approve(p.id, "wordpress");
+  await w.approve(p.id, "wordpress");
   let calls = 0;
   const original = global.fetch;
   global.fetch = async () => {
@@ -293,7 +293,7 @@ test("confirmed WordPress publish is idempotent for same revision and updates by
   w.state.settings.wordpressUrl = "https://example.com";
   w.state.settings.wordpressUser = "fixture";
   w.secrets = { wordpress: "fixture" };
-  w.approve(p.id, "wordpress");
+  await w.approve(p.id, "wordpress");
   const calls = [];
   const original = global.fetch;
   global.fetch = async (url) => {
@@ -308,7 +308,7 @@ test("confirmed WordPress publish is idempotent for same revision and updates by
     await wordpress(w, p.id);
     assert.equal(calls.length, 1);
     w.revise(p.id, { ...current(p), article: "Nova revisão" });
-    w.approve(p.id, "wordpress");
+    await w.approve(p.id, "wordpress");
     await wordpress(w, p.id);
     assert.equal(calls[1], "https://example.com/wp-json/wp/v2/posts/123");
   } finally {

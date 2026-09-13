@@ -1,6 +1,6 @@
 {
   "name": "social-media-agent",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0-beta.3",
   "private": true,
   "description": "Estúdio editorial local com agentes e aprovação humana",
   "author": "Rodrigo Nahum",
@@ -14,6 +14,7 @@
     "start": "npm run build && electron .",
     "test": "node --test tests/*.test.cjs",
     "test:desktop": "electron tests/desktop-smoke.cjs",
+    "test:editorial-desktop": "electron tests/editorial-desktop.cjs",
     "package:win": "npm run build && install-electron && electron-builder --win portable --publish never",
     "package:mac": "npm run build && install-electron && electron-builder --mac zip --publish never"
   },
@@ -41,6 +42,11 @@
     }
   },
   "dependencies": {
+    "@tiptap/markdown": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "dompurify": "^3.4.15",
     "fast-xml-parser": "^5.2.5",
     "lucide-react": "^0.468.0",
     "marked": "^15.0.0",

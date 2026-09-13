@@ -1,20 +1,20 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.2 — versão pública de testes.**
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.3 — versão pública de testes.**
 
 ## Experimentar
 
-Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.2](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.2):
+Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.3](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.3):
 
 | Sistema | Download |
 | --- | --- |
-| Windows 10/11, 64 bits | [Social Media Agent 0.1.0-beta.2 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.2/Social.Media.Agent.0.1.0-beta.2.exe) |
-| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.2 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.2/Social.Media.Agent-0.1.0-beta.2-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel | [Social Media Agent 0.1.0-beta.2 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.2/Social.Media.Agent-0.1.0-beta.2-mac.zip) |
+| Windows 10/11, 64 bits | [Social Media Agent 0.1.0-beta.3 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.3/Social.Media.Agent.0.1.0-beta.3.exe) |
+| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.3 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.3/Social.Media.Agent-0.1.0-beta.3-arm64-mac.zip) |
+| macOS 12 ou posterior com processador Intel | [Social Media Agent 0.1.0-beta.3 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.3/Social.Media.Agent-0.1.0-beta.3-mac.zip) |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 
-Ao abrir o aplicativo, escolha uma pasta vazia para o workspace e siga o [guia de primeiro acesso](docs/first-access.md) para conectar suas contas. Para explorar a produção, comece em **demonstração local**, crie uma pauta e clique em **Iniciar produção**. Edite o artigo e os cards, salve uma revisão e abra **Aprovação** para conferir os JPEGs e exportar.
+Os ajustes editoriais descritos abaixo estão no código atual; os downloads acima correspondem à release já publicada. Ao abrir o aplicativo, escolha uma pasta vazia para o workspace. Em **Nova pauta**, selecione Blog, Instagram ou ambos e escolha **Criar com IA** ou **Escrever manualmente**. A escrita manual dispensa chave e conexões. O [guia de primeiro acesso](docs/first-access.md) explica os editores e a configuração opcional dos serviços.
 
 Para desenvolver, use Node.js 22 ou superior:
 
@@ -29,12 +29,15 @@ npm start
 
 - Electron com React/TypeScript, preload restrito, isolamento de contexto e sandbox.
 - Pasta independente da instalação, SQLite portável, histórico de mensagens, execuções e revisões.
-- Fluxo pesquisador → redator → social media → revisor, com modelos individuais, catálogo OpenRouter e registro de consumo retornado pelo serviço.
+- Fluxo com modelos individuais, catálogo OpenRouter e registro de consumo. Blog dispensa a etapa social; Instagram pode partir do briefing e das fontes, sem gerar artigo. Gerar um canal preserva o outro.
 - Painel compacto de atividade com etapas, ferramentas e resultados persistidos. Falhas ficam pausadas e podem ser retomadas do último ponto salvo, com uma nova orientação do usuário.
 - Saída estruturada do carrossel com JSON Schema, correção automática e ajuste local de último recurso para limites de 90 e 420 caracteres. A resposta original permanece no histórico.
-- PubMed E-utilities: até seis registros por pauta, com resumo quando disponível. A interface diferencia metadados, resumo e demonstração.
-- Artigo Markdown, legenda e cards editáveis. Novas gerações acrescentam versões e preservam as anteriores.
-- Renderização local em JPEG 1080 × 1350. No desktop, a prévia e a exportação usam o mesmo renderizador.
+- PubMed E-utilities e web aberta por OpenRouter/Exa. O pesquisador escolhe entre ferramentas permitidas por workspace ou pauta. Consultas, fontes e tipo de acesso ficam registrados; ausência de fontes interrompe a geração.
+- Área **Conhecimento** para preferências gerais, orientações por canal e exemplos de escrita, salvos no workspace.
+- Editor visual de blog com Markdown e prévia formatada. Formatação antiga não suportada permanece editável em Markdown, sem converter o original ao abrir.
+- Legenda e cards manuais com inclusão, duplicação, remoção e ordenação. Reescrita com IA gera uma proposta para comparar, aplicar ou descartar; alterações durante a chamada impedem a aplicação sobre o texto modificado.
+- Imagens locais JPEG, PNG e WebP, enquadramento, três modelos visuais, cores, tipografia e assinatura. Padrões do autor e estilo de cada revisão ficam salvos.
+- Renderização local em JPEG 1080 × 1350 compartilhada entre prévia, exportação e publicação, com conferência dos bytes aprovados.
 - Cofre AES-256-GCM com chave derivada por scrypt e senha-mestra; credenciais desbloqueadas ficam no processo principal. Com a opção **Lembrar neste computador**, o sistema operacional protege uma cópia local da senha para reabrir somente aquele workspace na mesma conta do computador.
 - Aprovação por revisão, canal e destino; editar exige aprovar novamente.
 - Conector WordPress para publicação e atualização pelo ID remoto, com bloqueio após resultado incerto.
@@ -46,17 +49,17 @@ Os conectores usam aprovação explícita por revisão e destino. O histórico d
 ## Configurar serviços
 
 1. Em **Modelos e conexões**, informe a senha-mestra e a chave OpenRouter no cofre.
-2. Carregue o catálogo, selecione os quatro modelos, revise a memória editorial, desative a demonstração e salve.
-3. Descreva o tema, o público e o objetivo da pauta. O pesquisador usa essa demanda e a conversa para formular a busca no PubMed; se não encontrar fontes, reformula uma vez antes de interromper. A consulta fica registrada em Fontes. A execução envia briefing, fontes e contexto editorial ao OpenRouter e a consulta ao NCBI. Há limite de 5.000 tokens de saída por chamada; não há orçamento monetário rígido nesta beta.
+2. Carregue o catálogo, selecione os modelos e salve. Em **Conhecimento**, registre suas preferências. Em **Ferramentas de pesquisa**, permita PubMed, web aberta ou ambos; a pauta pode ter sua própria seleção.
+3. Descreva o tema, o público e o objetivo da pauta. O pesquisador escolhe a ferramenta e formula a consulta; sem fontes, reformula uma vez antes de interromper. As consultas ficam em **Fontes**. O OpenRouter recebe briefing, fontes e preferências; PubMed recebe a consulta, e buscas web usam OpenRouter/Exa. Há limite de 5.000 tokens de saída por chamada e limites por busca web; não há orçamento monetário rígido nesta beta.
 4. Para WordPress.com, clique em **Conectar WordPress.com** e autorize seu site no navegador. Para hospedagem própria, configure URL HTTPS, usuário e Application Password. Para Blogger, use **Conectar Blogger com Google** e selecione seu blog.
 5. Para Instagram, desbloqueie o cofre e clique em **Conectar Instagram**. Use uma conta profissional de criador ou empresa. O usuário autoriza perfil e publicação no navegador, sem copiar IDs ou tokens. O serviço está implantado no Cloudflare e hospeda os JPEGs temporariamente para o processamento da Meta. O acesso de contas sem função no aplicativo será liberado quando a Meta concluir a análise de acesso.
-6. Revise os JPEGs, aprove o destino e solicite a publicação. O aplicativo hospeda os cards temporariamente e a confirmação nativa mostra a ação antes do envio. Workspaces conectados em versões anteriores precisam reconectar o Instagram uma vez.
+6. Em **Revisar e publicar**, confira o artigo formatado, os cards e a legenda dos canais selecionados. Aprove e publique cada destino separadamente. Conectar duas contas não obriga publicar em ambas. O aplicativo hospeda os cards temporariamente e a confirmação nativa mostra a ação antes do envio. Workspaces conectados em versões anteriores precisam reconectar o Instagram uma vez.
 
-Mudar o modo de trabalho não torna um material de demonstração publicável: gere uma nova revisão conectada. Conteúdo e revisão por LLM não substituem avaliação humana das evidências.
+Não há pesquisa demonstrativa na interface pública. Revisões demonstrativas antigas continuam identificadas e bloqueadas para publicação; regenerar parcialmente conserva essa procedência. Simulações ficam restritas às ferramentas de desenvolvimento. Escrita manual e reescrita dispensam pesquisa externa.
 
 ## Portabilidade e recuperação
 
-Use **Copiar workspace** e escolha uma pasta vazia fora do workspace atual. A cópia inclui banco, manifesto e cofre, mas não o bloqueio de escrita nem a lembrança protegida pelo sistema. Abra a pasta copiada no aplicativo da outra máquina e desbloqueie com a mesma senha-mestra. **Um computador escreve por vez**; não há sincronização concorrente.
+Use **Copiar workspace** e escolha uma pasta vazia fora do workspace atual. A cópia inclui banco, manifesto, imagens imutáveis e cofre, mas não o bloqueio de escrita nem a lembrança protegida pelo sistema. Abra a pasta copiada no aplicativo da outra máquina e desbloqueie com a mesma senha-mestra. **Um computador escreve por vez**; não há sincronização concorrente.
 
 Os dados editoriais ficam legíveis no SQLite; apenas o cofre é criptografado. Use uma pasta adequada à sensibilidade do conteúdo. Não há recuperação da senha-mestra esquecida. Copiar tokens não impede expiração ou revogação.
 
@@ -70,6 +73,7 @@ O formato atual guarda o estado editorial versionado em uma linha SQLite e grava
 npm test
 npm run build
 npx electron tests/desktop-smoke.cjs
+npm run test:editorial-desktop
 npm run package:win
 # Executar em macOS:
 npm run package:mac
@@ -81,7 +85,7 @@ O build Windows portátil inclui o runtime. O build macOS deve ser gerado e vali
 
 O MVP usa um adaptador direto do OpenRouter em `core/providers.cjs`. Pi foi avaliado como base possível; não foi integrado nesta beta. O fluxo fixo dispensa ferramentas de terminal e mantém credenciais de publicação fora dos agentes. Veja [arquitetura](docs/architecture.md) e [fontes técnicas](docs/references.md).
 
-Limites conhecidos da beta: melhorar reconciliação; acrescentar limites de custo, edição independente do social, fontes de diretrizes e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
+Limites conhecidos da beta: melhorar reconciliação; acrescentar limites de custo e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
 
 WordPress.com também oferece conexão OAuth pelo botão **Conectar WordPress.com**, com seleção do site e autorização de posts e mídia. Sites com hospedagem própria mantêm a configuração de senha de aplicativo.
 Para começar, siga o [guia de primeiro acesso](docs/first-access.md). Cada pessoa cria seu próprio workspace e conecta suas próprias contas.

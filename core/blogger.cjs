@@ -78,7 +78,7 @@ async function publish(w, id, service) {
     s = w.state.settings,
     r = current(p);
   assertApproved(p, s, "blogger");
-  if (s.demo || r.demo)
+  if (r.demo)
     throw Error("Gere uma revisão conectada antes de publicar.");
   const previous = p.publications.blogger;
   if (previous?.status === "uncertain" || previous?.status === "sending")
@@ -92,8 +92,8 @@ async function publish(w, id, service) {
   if (previous?.remoteId && !/^\d+$/.test(previous.remoteId))
     throw Error("Identificador remoto inválido.");
   const { token } = await verify(w, service);
-  const { marked } = await import("marked");
-  const content = marked.parse(r.article.replace(/</g, "&lt;"));
+  const { renderBlog } = await import("./blog-html.mjs");
+  const content = renderBlog(r.article);
   p.publications.blogger = {
     status: "sending",
     revision: r.id,

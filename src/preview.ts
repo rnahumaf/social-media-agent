@@ -1,4 +1,5 @@
 import type { API, State } from "./types";
+import { defaultStyle } from "./editorial";
 let state: State = JSON.parse(
   localStorage.getItem("studio-preview") || "null",
 ) || {
@@ -41,26 +42,53 @@ export const preview: API = {
   },
   state: async () => save(),
   open: async () => save(),
-  create: async ({ title, brief, query = "" }) => {
+  create: async ({
+    title,
+    brief,
+    query = "",
+    channels = ["blog", "instagram"],
+    research = null,
+    manual = false,
+  }) => {
     state.projects.unshift({
       id: crypto.randomUUID(),
       title,
       brief,
+      channels,
+      research,
       query,
       status: "briefing",
       sources: [],
       messages: [],
       runs: [],
       sessions: [],
-      revisions: [],
+      revisions: manual
+        ? [
+            {
+              id: crypto.randomUUID(),
+              createdAt: new Date().toISOString(),
+              article: "",
+              caption: "",
+              cards: [],
+              style: state.settings.cardStyle || defaultStyle,
+              origin: "manual",
+              demo: false,
+            },
+          ]
+        : [],
       approval: null,
       publications: {},
     });
     return save();
   },
   settings: async ({ settings, memory }) => {
-    state.settings = { ...settings, demo: true };
-    state.memory = memory;
+    state.settings = { ...state.settings, ...settings, demo: true };
+    if (memory !== undefined) state.memory = memory;
+    return save();
+  },
+  knowledge: async ({ knowledge }) => {
+    state.knowledge = knowledge;
+    state.memory = knowledge.general;
     return save();
   },
   run: async ({ id }) => {
@@ -201,6 +229,8 @@ for (const name of [
   "export",
   "publish",
   "reconcile",
+  "rewrite",
+  "importImage",
 ])
   preview[name] = async () => {
     throw Error(

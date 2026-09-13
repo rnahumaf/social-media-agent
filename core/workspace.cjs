@@ -3,15 +3,16 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const initSql = require("sql.js");
 const { z } = require("zod");
+const editorial = require("./editorial-model.cjs");
 const roles = ["researcher", "writer", "social", "reviewer"];
 const text = z.string().max(200000);
 const revisionSchema = z.object({
   id: z.string(),
   article: text,
   caption: text,
-  cards: z
-    .array(z.object({ title: z.string().max(90), body: z.string().max(420) }))
-    .max(10),
+  cards: z.array(editorial.cardSchema).max(10),
+  style: editorial.styleSchema.optional(),
+  origin: z.enum(["manual", "ai", "demo"]).optional(),
   createdAt: z.string(),
   sourceRevision: z.string().optional(),
   sources: z.array(z.any()).optional(),
@@ -21,8 +22,12 @@ const stateSchema = z.object({
   format: z.literal(1),
   name: z.string(),
   memory: text,
+  editorialVersion: z.literal(2).optional(),
+  knowledge: editorial.knowledgeSchema.optional(),
   settings: z.object({
     demo: z.boolean(),
+    research: editorial.researchSchema.optional(),
+    cardStyle: editorial.styleSchema.optional(),
     models: z.record(z.string()),
     wordpressUrl: z.string(),
     wordpressUser: z.string(),
@@ -45,6 +50,8 @@ const stateSchema = z.object({
       id: z.string().uuid(),
       title: z.string().min(1).max(180),
       brief: text,
+      channels: editorial.channelsSchema.optional(),
+      research: editorial.researchSchema.nullable().optional(),
       query: text,
       status: z.string(),
       sources: z.array(z.any()),
@@ -54,6 +61,7 @@ const stateSchema = z.object({
       revisions: z.array(revisionSchema),
       approval: z.any().nullable(),
       approvalHistory: z.array(z.any()).optional(),
+      approvalMedia: z.array(z.string()).optional(),
       publications: z.record(z.any()),
     }),
   ),
@@ -245,14 +253,17 @@ function recoverTruncatedCarousels(state) {
   }
   return state;
 }
-function initial() {
+function initial({ demo = false } = {}) {
   return {
     format: 1,
+    editorialVersion: 2,
     name: "Meu workspace",
     memory:
       "Escreva em português brasileiro para o público definido na pauta. Sustente uma tese clara, preserve incertezas específicas e cite as fontes consultadas perto das afirmações correspondentes.",
     settings: {
-      demo: true,
+      demo,
+      research: demo ? ["pubmed"] : ["pubmed", "web"],
+      cardStyle: { ...editorial.defaultStyle },
       models: Object.fromEntries(roles.map((r) => [r, ""])),
       wordpressUrl: "",
       wordpressUser: "",
@@ -273,8 +284,14 @@ function current(p) {
 }
 function approvalHash(p, settings, channel) {
   return digest({
+    title: p.title,
+    channels: editorial.channels(p),
     revision: current(p),
-    renderer: "editorial-portrait-v1",
+    media:
+      channel === "instagram" || channel === "export"
+        ? p.approvalMedia
+        : undefined,
+    renderer: "editorial-portrait-v2",
     channel,
     destination:
       channel === "wordpress"
@@ -293,6 +310,7 @@ function approvalHash(p, settings, channel) {
 }
 function assertApproved(p, settings, channel) {
   if (
+    !editorial.allows(p, channel) ||
     !current(p) ||
     p.approval?.[channel] !== approvalHash(p, settings, channel)
   )
@@ -304,7 +322,7 @@ function atomic(file, data) {
   fs.renameSync(temp, file);
 }
 class Workspace {
-  static async open(dir) {
+  static async open(dir, { testMode = false } = {}) {
     fs.mkdirSync(dir, { recursive: true });
     const lock = path.join(dir, ".workspace.lock");
     let handle;
@@ -331,9 +349,30 @@ class Workspace {
               stateSchema.parse(JSON.parse(result[0].values[0][0])),
             ),
           )
-        : initial();
+        : initial({ demo: testMode });
+      if (!state.editorialVersion) {
+        state.editorialVersion = 2;
+        state.settings.research = ["pubmed"];
+        state.settings.cardStyle = { ...editorial.defaultStyle };
+        for (const p of state.projects) p.approval = null;
+      }
+      state.knowledge ||= {
+        general: state.memory,
+        blog: "",
+        instagram: "",
+        examples: "",
+      };
+      if (!testMode) state.settings.demo = false;
       const w = new Workspace();
-      Object.assign(w, { dir, lock, handle, db, state, secrets: null });
+      Object.assign(w, {
+        dir,
+        lock,
+        handle,
+        db,
+        state,
+        secrets: null,
+        testMode,
+      });
       w.save();
       return w;
     } catch (e) {
@@ -470,11 +509,17 @@ class Workspace {
     if (!p) throw Error("Projeto não encontrado.");
     return p;
   }
-  create(title, brief, query = "") {
+  create(title, brief, query = "", options = {}) {
     const p = {
       id: crypto.randomUUID(),
       title,
       brief,
+      channels: editorial.channelsSchema.parse(
+        options.channels || ["blog", "instagram"],
+      ),
+      research: options.research
+        ? editorial.researchSchema.parse(options.research)
+        : null,
       query,
       status: "briefing",
       sources: [],
@@ -487,6 +532,14 @@ class Workspace {
     };
     stateSchema.shape.projects.element.parse(p);
     this.state.projects.unshift(p);
+    if (options.manual)
+      this.revise(p.id, {
+        article: "",
+        caption: "",
+        cards: [],
+        origin: "manual",
+        demo: false,
+      });
     this.save();
     return p;
   }
@@ -495,7 +548,16 @@ class Workspace {
     const r = revisionSchema.parse({
       ...content,
       sources: content.sources || structuredClone(p.sources),
-      demo: content.demo ?? this.state.settings.demo,
+      demo:
+        content.demo ??
+        current(p)?.demo ??
+        (this.testMode && this.state.settings.demo),
+      origin: content.origin || "manual",
+      style:
+        content.style ||
+        current(p)?.style ||
+        this.state.settings.cardStyle ||
+        editorial.defaultStyle,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     });
@@ -512,21 +574,56 @@ class Workspace {
         title: z.string().trim().min(1).max(180),
         brief: text,
         query: text.optional(),
+        channels: editorial.channelsSchema.optional(),
+        research: editorial.researchSchema.nullable().optional(),
       })
       .parse(fields);
     Object.assign(p, changes);
     p.approval = null;
     this.save();
   }
-  approve(id, channel) {
+  async approve(id, channel) {
     const p = this.project(id);
     if (
       !["export", "wordpress", "instagram", "blogger"].includes(channel) ||
       !current(p)
     )
       throw Error("Revisão ou canal inválido.");
-    for (const [i, card] of current(p).cards.entries())
-      require("./render.cjs").svgCard(card, i, current(p).cards.length);
+    if (!editorial.allows(p, channel))
+      throw Error("Este canal não está selecionado na pauta.");
+    const r = current(p);
+    const needsBlog =
+      channel === "export"
+        ? editorial.channels(p).includes("blog")
+        : channel !== "instagram";
+    const needsSocial =
+      channel === "export"
+        ? editorial.channels(p).includes("instagram")
+        : channel === "instagram";
+    if (needsBlog && !r.article.trim())
+      throw Error("Escreva o artigo antes de aprovar o blog.");
+    if (needsSocial) {
+      if (
+        !r.caption.trim() ||
+        r.caption.length > 2200 ||
+        r.cards.length < 2 ||
+        r.cards.length > 10
+      )
+        throw Error(
+          "O Instagram precisa de legenda de até 2.200 caracteres e de 2 a 10 cards.",
+        );
+      for (const [i, card] of r.cards.entries())
+        require("./render.cjs").svgCard(
+          card,
+          i,
+          r.cards.length,
+          r.style,
+          this.dir,
+        );
+      p.approvalMedia = (
+        await require("./render.cjs").renderJPEGs(this.dir, r.cards, r.style)
+      ).map(require("./assets.cjs").hash);
+    }
     p.approval = {
       ...p.approval,
       [channel]: approvalHash(p, this.state.settings, channel),

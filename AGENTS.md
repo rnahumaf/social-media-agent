@@ -1,6 +1,6 @@
 # Social Media Agent
 
-Projeto em alfa: esboço experimental, sem autorização para uso cotidiano. A passagem para beta exige decisão explícita de Rodrigo.
+Projeto em beta: Rodrigo autorizou o uso cotidiano por desenvolvedores e testes públicos em 13/09/2026.
 
 - Preserve o workspace portável e seu histórico; use caminhos relativos nos dados.
 - Agentes não recebem credenciais nem ferramentas de publicação.
@@ -8,4 +8,4 @@ Projeto em alfa: esboço experimental, sem autorização para uso cotidiano. A p
 - Não repita publicações com resultado incerto automaticamente.
 - Teste persistência, aprovação, cofre e falhas externas ao alterar esses fluxos.
 - Não versione dados de usuários, credenciais, capturas privadas ou builds.
-- O usuário autorizou inicializar e publicar este projeto no GitHub e realizar mudanças amplas durante o alfa. Publicações editoriais em contas externas dependem de autorização específica no produto.
+- O usuário autorizou manter o repositório público, fazer push das versões do aplicativo e operar os serviços OAuth necessários. Publicações editoriais em contas externas dependem de autorização específica no produto.

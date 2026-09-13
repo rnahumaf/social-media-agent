@@ -59,3 +59,16 @@ test("Cloudflare sessions reject denial, enforce verifier, rate limit and consum
   for (let i = 0; i < 8; i++) await start();
   assert.equal((await start()).status, 429);
 });
+
+test("public service exposes home, privacy, terms and deletion instructions", async () => {
+  const { AuthSessions } = await import("../auth-service/worker.mjs");
+  const worker = new AuthSessions({}, {});
+  for (const route of ["/", "/privacy", "/terms", "/data-deletion"]) {
+    const response = await worker.fetch(
+      new Request("https://auth.example.test" + route),
+    );
+    assert.equal(response.status, 200, route);
+    assert.match(response.headers.get("Content-Type"), /text\/html/);
+    assert.match(await response.text(), /Social Media Agent/);
+  }
+});

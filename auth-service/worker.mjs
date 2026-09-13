@@ -83,6 +83,53 @@ const reply = (body, status = 200, html = false) =>
       },
     },
   );
+const page = (title, body) =>
+  new Response(
+    `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · Social Media Agent</title><style>body{font:16px/1.65 system-ui,sans-serif;color:#193d32;background:#f5f3ed;margin:0}main{max-width:760px;margin:auto;padding:48px 24px 80px}h1,h2{line-height:1.2}a{color:#226453}nav{display:flex;gap:18px;flex-wrap:wrap;margin:28px 0}small{color:#52625c}</style><main><h1>${title}</h1>${body}<nav><a href="/">Início</a><a href="/privacy">Privacidade</a><a href="/terms">Termos</a><a href="/data-deletion">Exclusão de dados</a></nav><small>Social Media Agent · contato: rnahumaf@gmail.com</small></main></html>`,
+    {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=3600",
+        "Referrer-Policy": "no-referrer",
+        "Content-Security-Policy":
+          "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+        "X-Content-Type-Options": "nosniff",
+      },
+    },
+  );
+const publicPages = {
+  "/": () =>
+    page(
+      "Social Media Agent",
+      '<p>Aplicativo desktop para pesquisa bibliográfica, redação, carrosséis e publicação com aprovação humana.</p><p>Cada pessoa conecta suas próprias contas no navegador e guarda as autorizações no cofre criptografado do seu workspace local.</p><p><a href="https://github.com/rnahumaf/social-media-agent">Código-fonte e instruções no GitHub</a></p>',
+    ),
+  "/privacy": () =>
+    page(
+      "Política de privacidade",
+      `<p>Última atualização: 13 de setembro de 2026.</p>
+      <h2>Dados tratados</h2><p>O aplicativo trata o identificador e o nome público das contas conectadas, a lista de blogs ou sites autorizados, tokens OAuth e o conteúdo que você decidir publicar. Projetos editoriais, conversas, fontes e credenciais permanecem no workspace escolhido por você. As credenciais são cifradas no cofre local.</p>
+      <h2>Finalidade</h2><p>Esses dados são usados para confirmar a conta escolhida, listar destinos disponíveis e executar publicações aprovadas por você. O aplicativo não vende dados pessoais nem usa o conteúdo conectado para publicidade.</p>
+      <h2>Serviço de conexão</h2><p>O serviço hospedado no Cloudflare troca códigos OAuth com Instagram, Google e WordPress.com. Códigos e tokens passam pelo serviço durante a conexão, mas não são gravados em banco ou logs de conteúdo. Imagens destinadas ao Instagram ficam temporariamente no Cloudflare R2 até o processamento da publicação; o aplicativo solicita sua remoção ao concluir e uma regra elimina remanescentes em até um dia.</p>
+      <h2>Outros serviços</h2><p>Quando você ativa uma função, dados necessários podem ser enviados ao OpenRouter, PubMed/NCBI, Meta/Instagram, Google/Blogger ou WordPress. Cada provedor aplica seus próprios termos e política de privacidade.</p>
+      <h2>Retenção e controle</h2><p>Você controla os arquivos do workspace. Use Desconectar para remover uma autorização do cofre atual, revogue o aplicativo na conta do provedor para invalidar outras cópias e apague o workspace para eliminar os dados locais. Consulte a página de exclusão para as etapas completas.</p>
+      <h2>Contato</h2><p>Dúvidas ou pedidos relacionados à privacidade podem ser enviados para <a href="mailto:rnahumaf@gmail.com">rnahumaf@gmail.com</a>.</p>`,
+    ),
+  "/terms": () =>
+    page(
+      "Termos de uso",
+      `<p>Última atualização: 13 de setembro de 2026.</p>
+      <h2>Uso do aplicativo</h2><p>O Social Media Agent é um software Beta de código aberto. Você deve usar contas que administra e revisar textos, imagens, referências e destinos antes de autorizar qualquer publicação.</p>
+      <h2>Contas e custos</h2><p>Você fornece suas próprias contas e credenciais. Tarifas, limites e regras do OpenRouter, Instagram, Google, WordPress e outros serviços continuam sob responsabilidade de cada provedor e do titular da conta.</p>
+      <h2>Conteúdo</h2><p>Você mantém seus direitos sobre o conteúdo inserido e produzido. Cabe a você verificar exatidão, direitos autorais, privacidade, consentimentos profissionais e adequação da publicação.</p>
+      <h2>Disponibilidade</h2><p>Recursos Beta podem falhar ou mudar. O aplicativo preserva o histórico local e evita repetir automaticamente publicações com resultado incerto, mas não garante disponibilidade de serviços externos.</p>
+      <h2>Contato</h2><p>Questões sobre estes termos podem ser enviadas para <a href="mailto:rnahumaf@gmail.com">rnahumaf@gmail.com</a>.</p>`,
+    ),
+  "/data-deletion": () =>
+    page(
+      "Exclusão de dados",
+      `<p>O serviço de conexão não mantém uma conta central nem grava tokens OAuth em banco. Para remover seus dados e autorizações:</p><ol><li>No Social Media Agent, abra Modelos e conexões e use Desconectar para cada serviço.</li><li>Revogue o Social Media Agent nas configurações de aplicativos conectados do Instagram, Google ou WordPress.</li><li>Apague a pasta do workspace para eliminar projetos, histórico e o cofre local.</li><li>Use Bloquear e esquecer neste computador antes de apagar o workspace para remover a lembrança local da senha-mestra.</li></ol><p>JPEGs temporários enviados para publicação no Instagram são apagados ao final do fluxo e expiram em até um dia. Para ajuda, escreva para <a href="mailto:rnahumaf@gmail.com">rnahumaf@gmail.com</a>.</p>`,
+    ),
+};
 async function json(url, options = {}) {
   let r;
   try {
@@ -157,12 +204,8 @@ export class AuthSessions {
         ? "blogger"
         : "instagram";
     try {
-      if (req.method === "GET" && url.pathname === "/")
-        return reply(
-          "Social Media Agent — alfa. Estúdio editorial local com aprovação humana. Conecte sua conta no aplicativo desktop; cada publicação exige aprovação.",
-          200,
-          true,
-        );
+      if (req.method === "GET" && publicPages[url.pathname])
+        return publicPages[url.pathname]();
       if (req.method === "GET" && url.pathname === "/health")
         return reply({
           status: "ok",

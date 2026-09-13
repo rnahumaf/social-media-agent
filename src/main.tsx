@@ -205,12 +205,12 @@ function App() {
           <button disabled={busy || !state} onClick={() => act("backup")}>
             <Archive size={18} /> Copiar workspace
           </button>
-          <div className="alpha">
-            <span>ALFA 0.1</span>
+          <div className="beta">
+            <span>BETA 0.1</span>
             <p>
-              Esboço experimental.
+              Versão pública de testes.
               <br />
-              Ainda fora do uso cotidiano.
+              Revise antes de publicar.
             </p>
           </div>
         </div>
@@ -1215,9 +1215,9 @@ function SettingsPanel({
       <section aria-label="Primeiro acesso" className="setup-guide">
         <h2>Conecte suas contas no seu computador</h2>
         <p>
-          Você faz login diretamente no Google e no Instagram. O responsável
-          pelo teste não precisa conhecer suas senhas. As autorizações são
-          salvas automaticamente no cofre.
+          Você faz login diretamente no Google e no Instagram. Suas senhas
+          permanecem nos provedores; o aplicativo salva somente as autorizações
+          no cofre.
         </p>
         <div className="actions">
           {[
@@ -1391,27 +1391,16 @@ function SettingsPanel({
           publicação de conteúdos. Sua senha é informada somente no Instagram.
         </p>
         <p className="small muted">
-          Neste alfa, peça ao responsável pelo teste um convite e aceite-o nas
-          configurações do Instagram antes de conectar. A conta precisa ser de
-          criador ou empresa; contas pessoais comuns não são compatíveis.
+          A conta precisa ser profissional, na modalidade criador ou empresa.
+          Contas pessoais comuns não são compatíveis com a API de publicação.
         </p>
         <ol>
           <li>Use sua conta profissional de criador ou empresa.</li>
-          <li>
-            Aceite o convite do Social Media Agent Alpha nas configurações do
-            Instagram.
-          </li>
           <li>
             Clique em Conectar Instagram, autorize no navegador e volte para
             conferir seu @ aqui.
           </li>
         </ol>
-        <button
-          disabled={busy || !window.studio}
-          onClick={() => act("instagramInvites")}
-        >
-          Abrir convites do Instagram
-        </button>
         {connecting && (
           <p role="status">
             Conclua a autorização no navegador do seu computador. Ao terminar,
@@ -1520,7 +1509,8 @@ function SettingsPanel({
         {bloggerConnecting && (
           <p role="status">
             Aguardando você autorizar o Google no navegador. Use a sua própria
-            conta; nenhuma senha deve ser enviada ao responsável pelo alfa.
+            conta; nenhuma senha deve ser enviada ao responsável pelo
+            aplicativo.
           </p>
         )}
         {state.settings.bloggerUrl && (
@@ -1598,10 +1588,8 @@ function SettingsPanel({
           )}
         </div>
         <p className="small muted">
-          Neste alfa, sua conta Google precisa estar cadastrada como testadora.
-          O Google pode exigir nova autorização após sete dias. Desconectar
-          remove o token deste workspace; revogue o app na conta Google para
-          invalidar outras cópias.
+          Desconectar remove o token deste workspace. Revogue o aplicativo na
+          conta Google para invalidar autorizações guardadas em outras cópias.
         </p>
       </section>
       <section>

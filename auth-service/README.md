@@ -1,10 +1,10 @@
-# Serviço de conexão Instagram (alfa)
+# Serviço de conexão e publicação
 
 Este componente é operado pelo responsável pelo Social Media Agent. O usuário final apenas desbloqueia seu cofre, clica em **Conectar Instagram** e autoriza a conta profissional no navegador. Ele não precisa criar aplicativo Meta, copiar token ou informar um ID numérico.
 
-## Cloudflare usado neste alfa
+## Serviço Cloudflare da beta
 
-O Worker `social-media-agent-auth-alpha` está publicado em `https://social-media-agent-auth-alpha.rnahumaf.workers.dev`. A configuração está em `wrangler.jsonc`; publique com `npx wrangler deploy --config auth-service/wrangler.jsonc`. O segredo `INSTAGRAM_APP_SECRET` deve ser cadastrado como Secret no Cloudflare. Logs de observabilidade estão desabilitados.
+O Worker `social-media-agent-auth-alpha` está publicado em `https://social-media-agent-auth-alpha.rnahumaf.workers.dev`. O identificador técnico foi preservado para não invalidar callbacks OAuth existentes; as páginas e o produto exibem a marca Beta. A configuração está em `wrangler.jsonc`; publique com `npx wrangler deploy --config auth-service/wrangler.jsonc`. O segredo `INSTAGRAM_APP_SECRET` deve ser cadastrado como Secret no Cloudflare. Logs de observabilidade estão desabilitados.
 
 O Durable Object coordena as sessões e garante resgate único mesmo entre requisições concorrentes. As sessões e tokens permanecem apenas na memória, sem escrita no armazenamento durável. Uma reinicialização pode invalidar uma conexão em andamento; o usuário deve tentar novamente. Há limite de dez inícios por minuto por hash de IP e mil sessões simultâneas por instância. O endereço público já está embutido na configuração do desktop. O endpoint `/health` informa se o segredo foi cadastrado, sem revelá-lo.
 
@@ -44,10 +44,10 @@ Referência: [Login de Empresa no Instagram](https://developers.facebook.com/doc
 
 O mesmo Worker oferece `/wordpress/sessions` e `/wordpress/callback`. Configure `WORDPRESS_CLIENT_ID` como variável pública e `WORDPRESS_CLIENT_SECRET` como Secret. O consentimento solicita `posts media`, sem acesso global. Cada sessão é vinculada ao provedor; um callback ou resgate Instagram não pode consumir uma sessão WordPress. O desktop confirma o site pela API oficial e verifica o vínculo do token ao site, os escopos e a consulta autenticada de posts antes de guardar o token. O conector para hospedagem própria continua usando senha de aplicativo e endpoint `/wp-json/wp/v2`.
 
-Os diagnósticos `node scripts/validate-instagram.cjs NOME` e `node scripts/validate-wordpress.cjs HOST_DO_SITE` exibem a URL de consentimento e somente o resultado resumido. Não salvam tokens. A implementação Node alternativa não oferece WordPress.com e não foi validada contra contas reais; use o Worker implantado neste alfa.
+Os diagnósticos `node scripts/validate-instagram.cjs NOME` e `node scripts/validate-wordpress.cjs HOST_DO_SITE` exibem a URL de consentimento e somente o resultado resumido. Não salvam tokens. A implementação Node alternativa não oferece WordPress.com e não foi validada contra contas reais; use o Worker implantado nesta beta.
 
 ## Blogger
 
-Configure GOOGLE_CLIENT_ID e o Secret GOOGLE_CLIENT_SECRET para um cliente web Google com callback HTTPS em /blogger/callback. Habilite a API Blogger no projeto Google e mantenha os testadores em Audience durante o alfa. As rotas /blogger/sessions usam a mesma entrega por verificador e consumo único. O escopo solicitado é https://www.googleapis.com/auth/blogger. O serviço não grava tokens; o refresh token retorna ao cofre do desktop. /blogger/refresh recebe esse token em Authorization, usa o segredo do cliente apenas no servidor e retorna o token de acesso renovado, sem persistência.
+Configure `GOOGLE_CLIENT_ID` e o Secret `GOOGLE_CLIENT_SECRET` para um cliente web Google com callback HTTPS em `/blogger/callback`. Habilite a API Blogger, declare `https://www.googleapis.com/auth/blogger` em **Data Access** e deixe o aplicativo externo em **In production**. O Google classifica esse escopo como não sensível; não é necessário manter uma lista de testadores. As rotas `/blogger/sessions` usam a mesma entrega por verificador e consumo único. O serviço não grava tokens; o refresh token retorna ao cofre do desktop. `/blogger/refresh` recebe esse token em `Authorization`, usa o segredo do cliente apenas no servidor e retorna o token de acesso renovado, sem persistência.
 
-O Google limita autorizações de apps externos em Testing; reconexão pode ser necessária após sete dias. Projeto, cliente web, segredo no Worker, API Blogger habilitada e primeiro testador estão configurados. A autorização real da conta do testador é uma etapa do primeiro acesso, executada por ele no seu computador. Os testes com fixtures não comprovam essa autorização.
+O projeto usado pela distribuição pública está em produção desde 13/09/2026. Qualquer conta Google pode iniciar o consentimento e conectar os blogs que administra. A autorização real acontece no computador de cada pessoa; senhas e códigos não são enviados ao responsável pelo aplicativo.

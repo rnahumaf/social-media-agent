@@ -1,4 +1,12 @@
-# Validação do alfa — 13/09/2026
+# Validação da beta — 13/09/2026
+
+## Acesso público aos provedores
+
+O aplicativo OAuth do Google está externo e **In production**. O escopo `https://www.googleapis.com/auth/blogger` foi declarado em Data Access e aparece como não sensível; qualquer conta Google pode iniciar o consentimento sem integrar uma lista de testadores. A API Blogger, o cliente web, o callback HTTPS e o segredo no Worker estão configurados.
+
+O WordPress.com usa o consentimento próprio do usuário, sem lista de convites no produto. O fluxo foi validado em uma conta real com os escopos `posts media`.
+
+Na Meta, o callback, o segredo e as duas permissões mínimas foram validados com uma conta profissional. As páginas públicas, o domínio, o nome e a categoria estão preparados. A publicação para contas de terceiros ainda depende dos requisitos de análise e acesso exibidos no portal Meta; até a aprovação, somente contas com função no aplicativo conseguem concluir o Instagram Login.
 
 ## Conexões reais
 
@@ -16,14 +24,14 @@ O painel foi inspecionado na prévia, que mantém conexão real desabilitada. A 
 
 ## Limites
 
-A Meta mantém o aplicativo não publicado. Testadores convidados com conta profissional podem autorizar. O acesso sem convite depende da análise da Meta; o rascunho contém somente instagram_business_basic e instagram_business_content_publish. O painel exige um portfólio empresarial verificado, ainda não disponível nesta configuração. Nenhum pedido foi enviado para análise.
+A Meta mantém o aplicativo não publicado enquanto os requisitos de análise de acesso não forem concluídos. O acesso sem convite depende da análise da Meta; a integração solicita somente `instagram_business_basic` e `instagram_business_content_publish`.
 
 Publicação real e geração paga não foram testadas. Fixtures verificam publicize=false no WordPress.com para impedir compartilhamento automático em outras redes. Assinatura, notarização e transferência entre máquinas Windows e macOS continuam pendentes.
 A versão 0.1.0-alpha.2 passou em 25 testes, build TypeScript/Vite e smoke Electron carregando o app.asar do pacote Windows.
 
 ## Blogger e primeiro acesso — alfa 0.1.0-alpha.3
 
-Foram acrescentados conexão Google, listagem dos blogs autorizados, seleção do destino, renovação do token e publicação protegida pela aprovação da revisão. O segredo do cliente Google fica no Cloudflare; tokens pessoais ficam no cofre. Os testes usam fixtures para confirmar vínculo ao blog, idempotência, bloqueio após resposta incerta e ausência de tokens no snapshot. A API Blogger foi habilitada e o estado Enabled foi confirmado no Google Cloud. Cliente web, callback HTTPS, segredo no Cloudflare e testador Google estão configurados. O consentimento real da conta do testador será concluído por ele no próprio computador; não foi solicitado acesso à sua senha. Nenhum conteúdo do testador foi publicado.
+Foram acrescentados conexão Google, listagem dos blogs autorizados, seleção do destino, renovação do token e publicação protegida pela aprovação da revisão. O segredo do cliente Google fica no Cloudflare; tokens pessoais ficam no cofre. Os testes usam fixtures para confirmar vínculo ao blog, idempotência, bloqueio após resposta incerta e ausência de tokens no snapshot. A API Blogger foi habilitada e o estado Enabled foi confirmado no Google Cloud. Cliente web, callback HTTPS e segredo no Cloudflare estão configurados. Em 13/09/2026, o OAuth externo passou para produção e o escopo Blogger foi declarado como não sensível. Nenhum conteúdo do testador foi publicado.
 
 ## Pesquisa autônoma — alfa 0.1.0-alpha.4
 

@@ -1,4 +1,4 @@
-# Arquitetura do alfa
+# Arquitetura da beta
 
 O aplicativo mantém três fronteiras: React apresenta e edita; o processo principal Electron controla os comandos; `core/` guarda dados, executa o fluxo e conecta serviços. O renderer não acessa Node, filesystem nem tokens salvos. Conteúdo gerado é apresentado como texto ou imagem local.
 
@@ -10,11 +10,10 @@ O fluxo é sequencial. PubMed é ferramenta programática do pesquisador; os qua
 
 O cofre portátil usa salt e IV aleatórios a cada gravação, AES-256-GCM e scrypt. Com **Lembrar neste computador**, a senha-mestra é cifrada pelo armazenamento seguro do Electron e indexada por um hash do caminho do workspace no diretório local do aplicativo. Essa lembrança não entra no workspace nem no backup. No Windows, a proteção usa DPAPI e fica vinculada à conta do sistema. Falhas de autenticação removem a lembrança inválida e não abrem o cofre. O bloqueio manual descarta as credenciais em memória e apaga a lembrança local; isso não promete apagar todas as cópias de memória geridas pelo runtime.
 
-WordPress mantém ID remoto para atualização; timeout marca resultado incerto. Instagram persiste IDs de filhos e contêiner pai; a recuperação manual é necessária após falha. URLs públicas podem mudar depois da verificação; por isso precisam hospedar arquivos imutáveis. O alfa não controla o servidor de mídia.
+WordPress mantém ID remoto para atualização; timeout marca resultado incerto. Instagram persiste IDs de filhos e contêiner pai; a recuperação manual é necessária após falha. URLs públicas podem mudar depois da verificação; por isso precisam hospedar arquivos imutáveis. O aplicativo usa um serviço de mídia temporária no Cloudflare.
 
-## Critérios antes de beta
+## Limites conhecidos da beta
 
-- Aprovação explícita de Rodrigo para uso cotidiano.
 - Teste real da transferência de workspace entre Windows e macOS, com cofre e assets.
 - Publicação autorizada em WordPress e Instagram de homologação, incluindo timeout e token expirado.
 - Fluxo de reconciliação de publicações acessível na interface, sem duplicar entregas externas.
@@ -23,4 +22,4 @@ WordPress mantém ID remoto para atualização; timeout marca resultado incerto.
 - Revisão de segurança, testes de migração de formato e validação mais estrita de dados importados.
 - Aprovação sobre artigo final, imagens e destinos, com controle explícito de materiais derivados obsoletos.
 
-Nenhuma promoção automática de alfa para beta faz parte da CI.
+Rodrigo autorizou a promoção para beta e o uso cotidiano por desenvolvedores em 13/09/2026. Mudanças futuras de estágio continuam sendo decisões explícitas do responsável.

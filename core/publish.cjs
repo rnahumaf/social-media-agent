@@ -125,7 +125,7 @@ async function instagram(w, id, urls = [], service) {
     );
   if (p.publications.instagram)
     throw Error(
-      "Já existe uma tentativa para este projeto. Confira a conta; este alfa não repete publicações Instagram.",
+      "Já existe uma tentativa para este projeto. Confira a conta; o aplicativo não repete publicações Instagram com resultado incerto.",
     );
   if (
     !/^v\d+\.\d+$/.test(s.graphVersion) ||

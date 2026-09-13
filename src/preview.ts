@@ -21,9 +21,6 @@ const save = () => {
   return structuredClone(state);
 };
 export const preview: API = {
-  instagramInvites: async () => {
-    throw Error("Abra o aplicativo desktop.");
-  },
   bloggerConnect: async () => {
     throw Error("Abra o aplicativo desktop para conectar o Blogger.");
   },

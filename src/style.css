@@ -354,6 +354,176 @@ h3 {
   margin-right: 21px;
   color: #b7c0ad;
 }
+.run-activity {
+  margin: -14px 35px 27px;
+  border: 1px solid #dfe6dc;
+  border-radius: 7px;
+  background: #fbfcfa;
+  overflow: hidden;
+}
+.run-activity.paused,
+.run-activity.interrupted,
+.run-activity.cancelled {
+  border-color: #ddcfaa;
+  background: #fdfbf5;
+}
+.run-summary {
+  min-height: 48px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.run-summary > svg {
+  color: #66806f;
+  flex: 0 0 auto;
+}
+.run-activity.running .run-summary > svg {
+  color: #28634d;
+  animation: activity-pulse 1.4s ease-in-out infinite;
+}
+@keyframes activity-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.run-summary > span:not(.run-count) {
+  min-width: 0;
+  flex: 1;
+}
+.run-summary b,
+.run-summary small {
+  display: block;
+}
+.run-summary b {
+  font-size: 11px;
+  font-weight: 600;
+}
+.run-summary small {
+  margin-top: 3px;
+  color: #839080;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.run-count {
+  color: #8b9687;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.run-activity details {
+  border-top: 1px solid #e6ebe3;
+}
+.run-activity summary {
+  padding: 9px 14px;
+  color: #617165;
+  font-size: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.event-log {
+  max-height: 230px;
+  overflow: auto;
+  border-top: 1px solid #edf0ea;
+  border-bottom: 1px solid #edf0ea;
+  background: #fff;
+}
+.run-event {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f2ed;
+}
+.run-event:last-child {
+  border-bottom: 0;
+}
+.event-icon {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #dfe5dc;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #748577;
+}
+.run-event.tool_call .event-icon {
+  color: #4e6e60;
+  background: #eef3ee;
+}
+.run-event.tool_result .event-icon,
+.run-event.output .event-icon {
+  color: #4c774f;
+  background: #edf5e9;
+}
+.run-event.error .event-icon {
+  color: #8c6b2b;
+  background: #fbf1d8;
+  border-color: #eadbb4;
+}
+.run-event.user .event-icon {
+  color: #536f86;
+  background: #edf3f6;
+}
+.run-event p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 3px;
+  color: #879287;
+  font-size: 9px;
+}
+.run-event p b {
+  color: #6d7a70;
+  font-weight: 600;
+}
+.run-event strong,
+.run-event small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.run-event strong {
+  font-size: 11px;
+  font-weight: 550;
+  color: #344b40;
+}
+.run-event small {
+  margin-top: 3px;
+  color: #7f8b80;
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.activity-note {
+  margin: 9px 14px;
+  color: #8b9589;
+  font-size: 9px;
+  line-height: 1.5;
+}
+.steer-form {
+  padding: 5px 14px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.steer-form label {
+  margin: 0;
+  gap: 5px;
+  font-size: 10px;
+}
+.steer-form label span {
+  color: #90998d;
+  font-weight: 400;
+}
+.steer-form textarea {
+  min-height: 56px;
+  max-height: 130px;
+  font-size: 11px;
+}
+.steer-form button {
+  min-height: 38px;
+  font-size: 11px;
+}
 .production {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 235px;
@@ -418,6 +588,18 @@ h3 {
   line-height: 1.9;
   color: #43503b;
   background: white;
+}
+.partial-draft > p {
+  margin: 0;
+  padding: 11px 28px;
+  border-bottom: 1px solid #ebe5d5;
+  background: #fdf9ed;
+  color: #77693d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.partial-draft .article {
+  background: #fdfefc;
 }
 .inspector {
   padding: 28px 24px;
@@ -764,6 +946,9 @@ textarea {
   .pipeline {
     margin: 0 28px 24px;
   }
+  .run-activity {
+    margin: -11px 28px 24px;
+  }
   .step-arrow {
     margin-right: 10px;
   }
@@ -820,6 +1005,15 @@ textarea {
     padding: 16px;
     gap: 16px;
     grid-template-columns: 1fr 1fr;
+  }
+  .run-activity {
+    margin: -9px 20px 22px;
+  }
+  .steer-form {
+    grid-template-columns: 1fr;
+  }
+  .steer-form button {
+    justify-self: start;
   }
   .step-arrow {
     display: none;

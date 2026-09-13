@@ -1,6 +1,6 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-alpha.6 — esboço experimental.** Beta só começa com autorização explícita de Rodrigo para uso cotidiano dos desenvolvedores.
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-alpha.7 — esboço experimental.** Beta só começa com autorização explícita de Rodrigo para uso cotidiano dos desenvolvedores.
 
 ## Experimentar
 
@@ -20,6 +20,7 @@ npm start
 - Electron com React/TypeScript, preload restrito, isolamento de contexto e sandbox.
 - Pasta independente da instalação, SQLite portável, histórico de mensagens, execuções e revisões.
 - Fluxo pesquisador → redator → social media → revisor, com modelos individuais, catálogo OpenRouter e registro de consumo retornado pelo serviço.
+- Painel compacto de atividade com etapas, ferramentas e resultados persistidos. Falhas ficam pausadas e podem ser retomadas do último ponto salvo, com uma nova orientação do usuário.
 - PubMed E-utilities: até seis registros por pauta, com resumo quando disponível. A interface diferencia metadados, resumo e demonstração.
 - Artigo Markdown, legenda e cards editáveis. Novas gerações acrescentam versões e preservam as anteriores.
 - Renderização local em JPEG 1080 × 1350. No desktop, a prévia e a exportação usam o mesmo renderizador.
@@ -48,7 +49,7 @@ Use **Copiar workspace** e escolha uma pasta vazia fora do workspace atual. A c�
 
 Os dados editoriais ficam legíveis no SQLite; apenas o cofre é criptografado. Use uma pasta adequada à sensibilidade do conteúdo. Não há recuperação da senha-mestra esquecida. Copiar tokens não impede expiração ou revogação.
 
-Após encerramento abrupto, confirme que nenhuma instância usa a pasta antes de remover `.workspace.lock`. Execuções interrompidas preservam resultados salvos, mas uma nova geração recomeça o fluxo. Uma publicação com resultado incerto exige conferência no serviço e nunca é repetida automaticamente. A reconciliação WordPress por ID existe no IPC; sua interface dedicada e a retomada dos contêineres Instagram ainda estão pendentes.
+Após encerramento abrupto, confirme que nenhuma instância usa a pasta antes de remover `.workspace.lock`. Execuções interrompidas preservam a consulta, as fontes, os textos parciais e o histórico de atividade. Ao reabrir, use **Tentar novamente** para continuar da etapa interrompida; uma orientação opcional passa a integrar o contexto dos agentes. Uma publicação com resultado incerto exige conferência no serviço e nunca é repetida automaticamente. A reconciliação WordPress por ID existe no IPC; sua interface dedicada e a retomada dos contêineres Instagram ainda estão pendentes.
 
 O formato atual guarda o estado editorial versionado em uma linha SQLite e grava snapshots atômicos. Isso simplifica o alfa; bases grandes exigirão tabelas normalizadas, migrações incrementais e paginação. As mensagens completas ficam preservadas; o contexto usa as últimas 20 mensagens de conversa, a revisão anterior e a memória editorial, sem busca semântica automática.
 
@@ -69,7 +70,7 @@ O build Windows portátil inclui o runtime. O build macOS deve ser gerado e vali
 
 O MVP usa um adaptador direto do OpenRouter em `core/providers.cjs`. Pi foi avaliado como base possível; não foi integrado neste alfa. O fluxo fixo dispensa ferramentas de terminal e mantém credenciais de publicação fora dos agentes. Veja [arquitetura e critérios de beta](docs/architecture.md) e [fontes técnicas](docs/references.md).
 
-Antes de beta: validar contas reais e falhas de rede; implantar e validar OAuth e hospedagem; melhorar reconciliação; acrescentar limites de custo, retomada por etapa, edição independente do social, fontes de diretrizes e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
+Antes de beta: validar contas reais e falhas de rede; implantar e validar OAuth e hospedagem; melhorar reconciliação; acrescentar limites de custo, edição independente do social, fontes de diretrizes e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
 
 WordPress.com também oferece conexão OAuth pelo botão **Conectar WordPress.com**, com seleção do site e autorização de posts e mídia. Sites com hospedagem própria mantêm a configuração de senha de aplicativo.
 Para entregar a um testador, siga o [guia do alfa](docs/alpha-user-guide.md). O Instagram requer conta profissional e convite de testador enquanto a análise da Meta não for concluída.

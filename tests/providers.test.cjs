@@ -8,6 +8,7 @@ test("OpenRouter keeps the selected model and permits provider failover", async 
     assert.equal(body.model, "fixture/model");
     assert.equal(body.max_tokens, 5000);
     assert.equal(body.provider.allow_fallbacks, true);
+    assert.deepEqual(body.reasoning, { effort: "low", exclude: true });
     return {
       ok: true,
       json: async () => ({
@@ -130,8 +131,38 @@ test("truncated generation does not become a draft", async () => {
           system: "",
           messages: [],
         }),
-      /excedeu/,
+      /consumiu o limite.*trabalho concluído foi preservado/,
     );
+  } finally {
+    global.fetch = original;
+  }
+});
+test("text content parts are normalized into the final response", async () => {
+  const original = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      choices: [
+        {
+          message: {
+            content: [
+              { type: "text", text: "Resposta " },
+              { type: "text", text: "completa" },
+            ],
+          },
+          finish_reason: "stop",
+        },
+      ],
+    }),
+  });
+  try {
+    const result = await complete({
+      key: "fixture",
+      model: "fixture",
+      system: "",
+      messages: [],
+    });
+    assert.equal(result.content, "Resposta completa");
   } finally {
     global.fetch = original;
   }

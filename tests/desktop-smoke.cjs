@@ -150,6 +150,8 @@ app.whenReady().then(async () => {
     const id = state.projects[0].id;
     state = await call("run", { id });
     assert.equal(state.projects[0].revisions.length, 1);
+    assert.equal(state.projects[0].sessions[0].status, "completed");
+    assert.ok(state.projects[0].sessions[0].events.length >= 6);
     const images = await call("render", {
       cards: state.projects[0].revisions[0].cards,
     });
@@ -166,6 +168,7 @@ app.whenReady().then(async () => {
     state = await call("state");
     assert.equal(state.projects[0].id, id);
     assert.equal(state.projects[0].revisions.length, 1);
+    assert.equal(state.projects[0].sessions[0].status, "completed");
     await call("vault", { password: "desktop-fixture-password" });
     await call("bloggerTest");
     state = await call("bloggerDisconnect");

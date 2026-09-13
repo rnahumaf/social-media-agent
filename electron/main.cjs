@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("node:path"),
-  fs = require("node:fs");
+  fs = require("node:fs"),
+  crypto = require("node:crypto");
 const { Workspace, current, assertApproved } = require("../core/workspace.cjs");
 const { run } = require("../core/pipeline.cjs");
 const { svgCard } = require("../core/render.cjs");
@@ -202,6 +203,21 @@ const actions = {
       if (p.status === "running") p.status = "interrupted";
       for (const r of p.runs)
         if (r.status === "running") r.status = "interrupted";
+      for (const session of p.sessions || [])
+        if (session.status === "running") {
+          session.status = "interrupted";
+          session.error =
+            "A execução foi interrompida quando o aplicativo foi fechado. Retome para continuar do último ponto salvo.";
+          session.updatedAt = new Date().toISOString();
+          session.events.push({
+            id: crypto.randomUUID(),
+            at: session.updatedAt,
+            kind: "error",
+            role: session.cursor === "search" ? "researcher" : session.cursor,
+            title: "Execução interrompida",
+            detail: session.error,
+          });
+        }
       for (const v of Object.values(p.publications))
         if (v.status === "sending") v.status = "uncertain";
     }
@@ -248,9 +264,13 @@ const actions = {
     return w.snapshot();
   },
   models: () => providers.models(),
-  run: async ({ id }) => {
+  run: async ({ id, resume = false, instruction = "" }) => {
     controller = new AbortController();
-    return run(w, id, { signal: controller.signal });
+    return run(w, id, {
+      signal: controller.signal,
+      resume: !!resume,
+      instruction,
+    });
   },
   cancel: () => {
     controller?.abort();

@@ -50,6 +50,7 @@ const stateSchema = z.object({
       sources: z.array(z.any()),
       messages: z.array(z.any()),
       runs: z.array(z.any()),
+      sessions: z.array(z.any()).default([]),
       revisions: z.array(revisionSchema),
       approval: z.any().nullable(),
       approvalHistory: z.array(z.any()).optional(),
@@ -57,6 +58,132 @@ const stateSchema = z.object({
     }),
   ),
 });
+const roleNames = {
+  researcher: "Pesquisador",
+  writer: "Redator",
+  social: "Social media",
+  reviewer: "Revisor",
+};
+function legacyArtifact(p, role) {
+  return p.messages
+    .filter((message) => message.role === "assistant" && message.agent === role)
+    .at(-1)?.content;
+}
+function migrateSessions(state) {
+  for (const p of state.projects) {
+    if (
+      p.sessions.length ||
+      !["running", "failed", "interrupted", "cancelled"].includes(p.status) ||
+      !p.runs.length
+    )
+      continue;
+    let start = -1;
+    if (p.sources.length)
+      for (let index = p.runs.length - 1; index >= 0; index--)
+        if (
+          p.runs[index].phase === "search" &&
+          p.runs[index].status === "completed" &&
+          p.runs[index].resultCount
+        ) {
+          start = index;
+          break;
+        }
+    if (start < 0)
+      for (let index = p.runs.length - 1; index >= 0; index--)
+        if (p.runs[index].phase === "search") {
+          start = index;
+          break;
+        }
+    if (start < 0) start = Math.max(0, p.runs.length - roles.length);
+    const group = p.runs.slice(start);
+    const stopped = [...group]
+      .reverse()
+      .find((item) => item.status !== "completed");
+    const lastCompleted = [...group]
+      .reverse()
+      .find((item) => item.status === "completed");
+    const cursor = stopped
+      ? stopped.phase === "search"
+        ? "search"
+        : stopped.role
+      : lastCompleted?.phase === "search"
+        ? "researcher"
+        : roles[roles.indexOf(lastCompleted?.role) + 1] || "reviewer";
+    const dossier = legacyArtifact(p, "researcher");
+    const article = legacyArtifact(p, "writer");
+    const socialText = legacyArtifact(p, "social");
+    let social;
+    try {
+      social = socialText
+        ? JSON.parse(
+            socialText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""),
+          )
+        : undefined;
+    } catch {}
+    const session = {
+      id: crypto.randomUUID(),
+      status: p.status === "cancelled" ? "cancelled" : "paused",
+      cursor,
+      startedAt: group[0]?.startedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      error:
+        "A execução anterior não foi concluída. O material recuperado está pronto para uma nova tentativa.",
+      events: [
+        {
+          id: crypto.randomUUID(),
+          at: new Date().toISOString(),
+          kind: "status",
+          title: "Execução anterior recuperada",
+          detail:
+            "O aplicativo preservou as etapas concluídas e retomará do último ponto disponível.",
+        },
+      ],
+      artifacts: {
+        query: p.query,
+        sources: structuredClone(p.sources),
+        ...(dossier ? { dossier } : {}),
+        ...(article ? { article } : {}),
+        ...(social ? { social } : {}),
+      },
+    };
+    for (const item of group) {
+      const sourceCount = item.resultCount || p.sources.length;
+      item.sessionId = session.id;
+      session.events.push({
+        id: crypto.randomUUID(),
+        at: item.finishedAt || item.startedAt || session.updatedAt,
+        kind: item.status === "completed" ? "output" : "error",
+        role: item.role,
+        title:
+          item.phase === "search"
+            ? item.status === "completed"
+              ? `${sourceCount} ${sourceCount === 1 ? "fonte preservada" : "fontes preservadas"}`
+              : "Busca científica não concluída"
+            : `${roleNames[item.role] || item.role} · ${
+                item.status === "completed"
+                  ? "etapa preservada"
+                  : "etapa interrompida"
+              }`,
+        detail:
+          item.error ||
+          (item.status === "completed"
+            ? "Resultado disponível no workspace."
+            : "Aguardando nova tentativa."),
+      });
+    }
+    if (
+      social &&
+      group.some(
+        (item) => item.role === "social" && item.status === "completed",
+      ) &&
+      current(p)
+    )
+      session.revisionId = current(p).id;
+    p.sessions.push(session);
+    p.status = session.status;
+  }
+  return state;
+}
 function initial() {
   return {
     format: 1,
@@ -138,7 +265,7 @@ class Workspace {
       );
       const result = db.exec("SELECT data FROM workspace WHERE id=1");
       const state = result.length
-        ? stateSchema.parse(JSON.parse(result[0].values[0][0]))
+        ? migrateSessions(stateSchema.parse(JSON.parse(result[0].values[0][0])))
         : initial();
       const w = new Workspace();
       Object.assign(w, { dir, lock, handle, db, state, secrets: null });
@@ -281,6 +408,7 @@ class Workspace {
       sources: [],
       messages: [],
       runs: [],
+      sessions: [],
       revisions: [],
       approval: null,
       publications: {},

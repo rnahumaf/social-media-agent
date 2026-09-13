@@ -6,6 +6,40 @@ export type Revision = {
   cards: Card[];
   createdAt: string;
 };
+export type RunEvent = {
+  id: string;
+  at: string;
+  kind: "status" | "tool_call" | "tool_result" | "output" | "error" | "user";
+  role?: string;
+  title: string;
+  detail?: string;
+};
+export type RunSession = {
+  id: string;
+  status: string;
+  cursor: string;
+  startedAt: string;
+  updatedAt: string;
+  finishedAt?: string;
+  error?: string;
+  instruction?: string;
+  events: RunEvent[];
+  artifacts?: {
+    query?: string;
+    sources?: Project["sources"];
+    dossier?: string;
+    article?: string;
+    social?: { caption: string; cards: Card[] };
+    responses?: {
+      id: string;
+      role: string;
+      phase?: string;
+      content: string;
+      at: string;
+    }[];
+  };
+  revisionId?: string;
+};
 export type Project = {
   id: string;
   title: string;
@@ -33,7 +67,12 @@ export type Project = {
     model: string;
     status: string;
     usage?: { total_tokens?: number; cost?: number };
+    error?: string;
+    sessionId?: string;
+    startedAt?: string;
+    finishedAt?: string;
   }[];
+  sessions?: RunSession[];
   revisions: Revision[];
   approval: Record<string, string> | null;
   publications: Record<

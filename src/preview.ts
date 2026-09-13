@@ -54,6 +54,7 @@ export const preview: API = {
       sources: [],
       messages: [],
       runs: [],
+      sessions: [],
       revisions: [],
       approval: null,
       publications: {},
@@ -67,6 +68,49 @@ export const preview: API = {
   },
   run: async ({ id }) => {
     const p = state.projects.find((p) => p.id === id)!;
+    const sessionId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    p.sessions ||= [];
+    p.sessions.push({
+      id: sessionId,
+      status: "completed",
+      cursor: "done",
+      startedAt: timestamp,
+      updatedAt: timestamp,
+      finishedAt: timestamp,
+      artifacts: {},
+      events: [
+        {
+          id: crypto.randomUUID(),
+          at: timestamp,
+          kind: "status",
+          title: "Execução iniciada",
+        },
+        {
+          id: crypto.randomUUID(),
+          at: timestamp,
+          kind: "tool_result",
+          role: "researcher",
+          title: "Fonte de demonstração preparada",
+          detail: "Nenhuma consulta externa foi executada.",
+        },
+        ...["researcher", "writer", "social", "reviewer"].map((role) => ({
+          id: crypto.randomUUID(),
+          at: timestamp,
+          kind: "output" as const,
+          role,
+          title: `${
+            {
+              researcher: "Pesquisador",
+              writer: "Redator",
+              social: "Social media",
+              reviewer: "Revisor",
+            }[role]
+          } concluiu a etapa`,
+          detail: "Resultado salvo no workspace.",
+        })),
+      ],
+    });
     p.sources = [
       {
         title: "Exemplo fictício — sem evidência científica",
@@ -79,6 +123,7 @@ export const preview: API = {
     ];
     p.runs = ["researcher", "writer", "social", "reviewer"].map((role) => ({
       id: crypto.randomUUID(),
+      sessionId,
       role,
       model: "Demonstração local",
       status: "completed",

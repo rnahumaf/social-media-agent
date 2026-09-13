@@ -6,6 +6,7 @@ Consultadas em 12/09/2026. Estas referências orientam a integração; não repr
 - [Electron: segurança](https://www.electronjs.org/docs/latest/tutorial/security): isolamento, sandbox e navegação restrita.
 - [OpenRouter: chat completions](https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request): chamadas de geração.
 - [OpenRouter: catálogo de modelos](https://openrouter.ai/docs/api/api-reference/models/get-models): IDs e metadados dinâmicos.
+- [OpenRouter: tokens de raciocínio](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens): configuração de esforço e reserva de tokens para a resposta final.
 - [NCBI: E-utilities](https://www.ncbi.nlm.nih.gov/books/NBK25501/): pesquisa e recuperação de registros PubMed.
 - [WordPress: autenticação](https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/): Application Passwords.
 - [WordPress: posts](https://developer.wordpress.org/rest-api/reference/posts/): criação e atualização.

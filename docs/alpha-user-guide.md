@@ -1,4 +1,4 @@
-# Primeiro acesso — alfa 0.1.0-alpha.6
+# Primeiro acesso — alfa 0.1.0-alpha.7
 
 Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. A tela **Modelos e conexões** apresenta três etapas. Você não precisa instalar Node, criar aplicativos de desenvolvedor ou copiar tokens. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
 
@@ -25,6 +25,8 @@ Descreva o tema, o público e o objetivo da pauta. O pesquisador decide os termo
 Para gerar conteúdo real, informe sua chave OpenRouter no cofre, escolha os modelos e desative demonstração. Ao abrir um workspace existente, a senha-mestra desbloqueia as credenciais que já estavam naquele cofre; ela não adiciona uma chave OpenRouter que nunca foi salva. Revise e aprove cada destino antes de publicar. O Instagram ainda exige URLs HTTPS dos JPEGs exportados, hospedados sem alteração.
 
 Se o OpenRouter limitar uma chamada, o aplicativo tenta novamente após uma espera curta e pode usar outro provedor do mesmo modelo. O modelo selecionado não muda. Se o limite persistir, aguarde um minuto e confira os limites da chave e o saldo da conta OpenRouter.
+
+Durante a produção, **Ver atividade dos agentes** mostra a etapa atual, as ferramentas chamadas e os resultados já salvos. Se uma etapa falhar, a execução fica em **Aguardando nova tentativa**. Abra o painel, escreva uma orientação opcional e escolha **Retomar com orientação**, ou use **Tentar novamente** sem acrescentar texto. A retomada conserva a consulta, as fontes e os textos concluídos. Workspaces que falharam nas versões alfa anteriores são convertidos automaticamente quando possível.
 
 **Desconectar** remove a autorização deste workspace. Para invalidar também cópias anteriores, revogue o aplicativo nas configurações do provedor. Para transferir seu histórico, use **Copiar workspace**, abra a cópia no outro computador e use a mesma senha-mestra. Apenas um computador deve escrever nessa pasta por vez.
 

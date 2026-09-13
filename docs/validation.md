@@ -42,3 +42,11 @@ Os testes cobrem os três estados do cofre, ausência de chave sem mutação da 
 O erro HTTP 429 observado ocorreu na primeira chamada OpenRouter do pesquisador, antes da consulta ao PubMed. O modelo selecionado continuava disponível no catálogo e possuía vários provedores. A requisição passa a permitir failover entre provedores do mesmo modelo, sem fallback para outro modelo. Um 429 com espera de até cinco segundos é repetido uma vez; persistência do limite produz mensagem específica para OpenRouter ou PubMed. Erros 401, 402 e 404 do OpenRouter orientam, respectivamente, chave, saldo e catálogo.
 
 Testes verificam que o modelo não muda, que o failover de provedor está habilitado e que um 429 persistente faz exatamente duas tentativas antes do erro orientado. Nenhuma chamada paga foi usada nesse teste.
+
+## Sessões retomáveis — alfa 0.1.0-alpha.7
+
+Cada execução passa a armazenar eventos de atividade e artefatos parciais no workspace. O painel mostra o agente ativo, chamadas ao OpenRouter e PubMed, consultas, quantidade de fontes, saídas concluídas e falhas. Ele apresenta resumos operacionais e não expõe o raciocínio interno bruto do modelo.
+
+Uma falha pausa a sessão no pesquisador, redator, social media ou revisor. **Tentar novamente** conserva as etapas anteriores; uma orientação opcional é persistida na conversa e enviada às etapas retomadas. Artigos concluídos antes de uma falha posterior ficam visíveis como rascunho parcial. Ao abrir um workspace das versões anteriores, uma execução incompleta é convertida em sessão retomável com as fontes e respostas disponíveis.
+
+O modelo `z-ai/glm-5.3-flash` informa raciocínio obrigatório e esforço máximo por padrão no catálogo OpenRouter. As chamadas agora solicitam esforço baixo e excluem esse conteúdo da resposta, reservando parte do limite para o texto final. Respostas textuais segmentadas também são normalizadas. Os testes cobrem persistência após reabrir, migração do formato anterior, retomada sem nova consulta ao PubMed, orientação do usuário e respostas sem texto final. O painel foi inspecionado na prévia próximo da largura mínima da janela.

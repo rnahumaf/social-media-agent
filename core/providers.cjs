@@ -95,17 +95,31 @@ async function complete({ key, model, system, messages, signal }) {
       model,
       messages: [{ role: "system", content: system }, ...messages],
       max_tokens: 5000,
+      // Alguns modelos usam raciocínio obrigatório. O esforço baixo reserva
+      // tokens para a resposta final e o conteúdo interno não é retornado.
+      reasoning: { effort: "low", exclude: true },
       // Mantém o modelo escolhido e permite outro provedor desse mesmo modelo.
       provider: { allow_fallbacks: true },
     }),
     signal,
   });
-  const content = data.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim())
-    throw Error("O modelo não retornou texto.");
-  if (data.choices[0].finish_reason === "length")
+  const choice = data.choices?.[0];
+  if (choice?.finish_reason === "length")
     throw Error(
-      "A resposta excedeu o limite; reduza o briefing e tente novamente.",
+      "O modelo consumiu o limite antes de concluir a resposta. Tente novamente; o trabalho concluído foi preservado.",
+    );
+  const raw = choice?.message?.content;
+  const content = Array.isArray(raw)
+    ? raw
+        .filter(
+          (part) => part?.type === "text" && typeof part.text === "string",
+        )
+        .map((part) => part.text)
+        .join("")
+    : raw;
+  if (typeof content !== "string" || !content.trim())
+    throw Error(
+      "O modelo concluiu a chamada sem texto final. Tente novamente; o trabalho concluído foi preservado.",
     );
   return { content, model: data.model, usage: data.usage || {} };
 }

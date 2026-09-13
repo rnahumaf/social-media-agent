@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BookOpen,
@@ -18,8 +18,11 @@ import {
   PanelLeft,
   Send,
   Archive,
+  Wrench,
+  RotateCcw,
+  Clock3,
 } from "lucide-react";
-import type { State, Revision, Project } from "./types";
+import type { State, Revision, Project, RunEvent } from "./types";
 import { preview } from "./preview";
 import "./style.css";
 const api = window.studio || preview;
@@ -34,6 +37,7 @@ const labels: Record<string, string> = {
   failed: "Falha",
   cancelled: "Cancelado",
   interrupted: "Interrompido",
+  paused: "Aguardando nova tentativa",
   completed: "Concluído",
   published: "Publicado",
   uncertain: "Resultado incerto",
@@ -52,12 +56,23 @@ function App() {
     [title, setTitle] = useState(""),
     [brief, setBrief] = useState(""),
     [message, setMessage] = useState(""),
+    [steer, setSteer] = useState(""),
     [draft, setDraft] = useState<Revision | null>(null),
     [dirty, setDirty] = useState(false),
     [version, setVersion] = useState(""),
     [urls, setUrls] = useState("");
   const p = state?.projects.find((p) => p.id === id),
-    r = p?.revisions.at(-1);
+    r = p?.revisions.at(-1),
+    session = p?.sessions?.at(-1),
+    partialArticle =
+      session &&
+      session.cursor !== "done" &&
+      !session.revisionId &&
+      session.artifacts?.article,
+    resumable =
+      !!session &&
+      ["paused", "interrupted", "cancelled"].includes(session.status) &&
+      session.cursor !== "done";
   async function refresh() {
     const s = await api.state();
     setState(s);
@@ -75,6 +90,7 @@ function App() {
     setDraft(r ? structuredClone(r) : null);
     setDirty(false);
     setVersion("");
+    setSteer("");
   }, [id, r?.id]);
   useEffect(() => {
     if (!busy) return;
@@ -308,23 +324,31 @@ function App() {
                         );
                         return;
                       }
-                      act("run", { id });
+                      act("run", { id, resume: resumable });
                     }}
                   >
                     <Play size={16} />
                     {!state!.settings.demo &&
                     (!state!.unlocked || !state!.openrouterConfigured)
                       ? "Configurar OpenRouter"
-                      : r
-                        ? "Gerar nova versão"
-                        : "Iniciar produção"}
+                      : resumable
+                        ? "Tentar novamente"
+                        : r
+                          ? "Gerar nova versão"
+                          : "Iniciar produção"}
                   </button>
                 )}
               </div>
             </section>
             <section className="pipeline">
               {["researcher", "writer", "social", "reviewer"].map((role, i) => {
-                const run = p.runs.filter((r) => r.role === role).at(-1);
+                const run = p.runs
+                  .filter(
+                    (item) =>
+                      item.role === role &&
+                      (!session || item.sessionId === session.id),
+                  )
+                  .at(-1);
                 return (
                   <div
                     key={role}
@@ -354,6 +378,23 @@ function App() {
                 );
               })}
             </section>
+            {session && (
+              <RunActivity
+                session={session}
+                busy={busy}
+                steer={steer}
+                setSteer={setSteer}
+                resume={() =>
+                  act("run", {
+                    id,
+                    resume: true,
+                    instruction: steer.trim(),
+                  }).then((result) => {
+                    if (result) setSteer("");
+                  })
+                }
+              />
+            )}
             <div className="production">
               <section className="editor-panel">
                 <div className="tabs">
@@ -378,9 +419,11 @@ function App() {
                 {(tab === "article" || tab === "social") && (
                   <div className="editor-tools">
                     <span>
-                      {r
-                        ? `${p.revisions.length} revisão(ões)`
-                        : "Nenhum material gerado"}
+                      {partialArticle && !version
+                        ? "Rascunho parcial salvo"
+                        : r
+                          ? `${p.revisions.length} revisão(ões)`
+                          : "Nenhum material gerado"}
                     </span>
                     {r && (
                       <div>
@@ -416,7 +459,20 @@ function App() {
                   </div>
                 )}
                 {tab === "article" &&
-                  (shown ? (
+                  (partialArticle && !version ? (
+                    <div className="partial-draft">
+                      <p>
+                        O redator concluiu este texto antes da interrupção. Ele
+                        está salvo e será reutilizado na retomada.
+                      </p>
+                      <textarea
+                        aria-label="Rascunho parcial do artigo"
+                        className="article"
+                        value={partialArticle}
+                        readOnly
+                      />
+                    </div>
+                  ) : shown ? (
                     <textarea
                       aria-label="Artigo em Markdown"
                       className="article"
@@ -834,6 +890,111 @@ function App() {
         </div>
       )}
     </div>
+  );
+}
+function RunActivity({
+  session,
+  busy,
+  steer,
+  setSteer,
+  resume,
+}: {
+  session: NonNullable<Project["sessions"]>[number];
+  busy: boolean;
+  steer: string;
+  setSteer: (value: string) => void;
+  resume: () => void;
+}) {
+  const log = useRef<HTMLDivElement>(null);
+  const retryable =
+    ["paused", "interrupted", "cancelled"].includes(session.status) &&
+    session.cursor !== "done";
+  const latest = session.events.at(-1);
+  useEffect(() => {
+    if (log.current) log.current.scrollTop = log.current.scrollHeight;
+  }, [session.events.length]);
+  const icon = (event: RunEvent) =>
+    event.kind === "tool_call" ? (
+      <Wrench size={14} />
+    ) : event.kind === "user" ? (
+      <Send size={14} />
+    ) : event.kind === "tool_result" || event.kind === "output" ? (
+      <CheckCheck size={14} />
+    ) : event.kind === "error" ? (
+      <RotateCcw size={14} />
+    ) : (
+      <Clock3 size={14} />
+    );
+  return (
+    <section className={`run-activity ${session.status}`} aria-live="polite">
+      <div className="run-summary">
+        <Activity size={17} />
+        <span>
+          <b>{labels[session.status] || session.status}</b>
+          <small>{latest?.title || "Execução registrada"}</small>
+        </span>
+        <span className="run-count">
+          {session.events.length} evento
+          {session.events.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <details
+        key={`${session.id}-${session.status}`}
+        open={session.status === "running" || retryable}
+      >
+        <summary>Ver atividade dos agentes</summary>
+        <div className="event-log" ref={log}>
+          {session.events.map((event) => (
+            <article className={`run-event ${event.kind}`} key={event.id}>
+              <span className="event-icon">{icon(event)}</span>
+              <div>
+                <p>
+                  <b>{event.role ? labels[event.role] : "Execução"}</b>
+                  <time>
+                    {new Date(event.at).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </time>
+                </p>
+                <strong>{event.title}</strong>
+                {event.detail && <small>{event.detail}</small>}
+              </div>
+            </article>
+          ))}
+        </div>
+        <p className="activity-note">
+          O workspace guarda etapas, ferramentas, resultados e orientações. O
+          painel resume a atividade sem mostrar raciocínio interno bruto do
+          modelo.
+        </p>
+        {retryable && (
+          <form
+            className="steer-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!busy) resume();
+            }}
+          >
+            <label>
+              Orientação para retomar <span>(opcional)</span>
+              <textarea
+                value={steer}
+                disabled={busy}
+                maxLength={10000}
+                onChange={(event) => setSteer(event.target.value)}
+                placeholder="Ex.: mantenha as fontes encontradas e torne a explicação mais direta."
+              />
+            </label>
+            <button className="primary" disabled={busy}>
+              <RotateCcw size={15} />
+              {steer.trim() ? "Retomar com orientação" : "Tentar novamente"}
+            </button>
+          </form>
+        )}
+      </details>
+    </section>
   );
 }
 function CardImage({

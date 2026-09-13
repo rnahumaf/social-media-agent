@@ -5,7 +5,7 @@ const test = require("node:test"),
   path = require("node:path");
 const { Workspace, current, assertApproved } = require("../core/workspace.cjs");
 const { run } = require("../core/pipeline.cjs");
-const { svgCard } = require("../core/render.cjs");
+const { svgCard, cardLayout } = require("../core/render.cjs");
 const { wordpress, httpsBase } = require("../core/publish.cjs");
 async function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "editorial-test-"));
@@ -154,6 +154,26 @@ test("render escapes markup and produces valid portrait JPEG", async () => {
   assert.equal(metadata.height, 1350);
   assert.equal(metadata.format, "jpeg");
   assert.throws(() => svgCard({ title: "x ".repeat(200), body: "" }, 0, 2));
+});
+test("render adapts typography for a valid card near the content limit", async () => {
+  const sharp = require("sharp");
+  const card = {
+    title: "Quando um resultado realmente merece investigação?",
+    body: "Uma alteração precisa ser interpretada conforme a pergunta clínica, o contexto e as consequências de investigar. "
+      .repeat(6)
+      .slice(0, 420),
+  };
+  const layout = cardLayout(card);
+  const bottom =
+    layout.bodyY + (layout.body.length - 1) * layout.bodyLineHeight;
+  assert.ok(layout.bodySize >= 30);
+  assert.ok(bottom <= 1160);
+  const bytes = await sharp(Buffer.from(svgCard(card, 0, 4)))
+    .jpeg()
+    .toBuffer();
+  const metadata = await sharp(bytes).metadata();
+  assert.equal(metadata.width, 1080);
+  assert.equal(metadata.height, 1350);
 });
 test("publication cannot bypass human approval", async (t) => {
   const { w } = await fixture(t);

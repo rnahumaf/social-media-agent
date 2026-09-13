@@ -1006,6 +1006,23 @@ function RunActivity({
     </section>
   );
 }
+const cardRenderCache = new Map<string, Promise<string[]>>();
+function renderCards(cards: Revision["cards"]) {
+  const key = JSON.stringify(cards);
+  let pending = cardRenderCache.get(key);
+  if (!pending) {
+    pending = api.render({ cards }).catch((error) => {
+      cardRenderCache.delete(key);
+      throw error;
+    });
+    cardRenderCache.set(key, pending);
+    if (cardRenderCache.size > 12) {
+      const oldest = cardRenderCache.keys().next().value;
+      if (oldest) cardRenderCache.delete(oldest);
+    }
+  }
+  return pending;
+}
 function CardImage({
   cards,
   index,
@@ -1022,8 +1039,7 @@ function CardImage({
     setImages([]);
     const timer = setTimeout(
       () =>
-        api
-          .render({ cards })
+        renderCards(cards)
           .then((result) => {
             if (active) {
               setImages(result);

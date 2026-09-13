@@ -21,7 +21,7 @@ const instructions = {
   writer:
     "Escreva um artigo em Markdown com referências [PMID: número], limitações e linguagem acessível. Use somente evidências fornecidas; não invente dados. O conteúdo é rascunho para revisão humana.",
   social:
-    'Retorne exclusivamente JSON válido no formato {"caption":"legenda e hashtags","cards":[{"title":"até 90 caracteres","body":"até 420 caracteres"}]}. Crie de 2 a 8 cards baseados no artigo. Preserve as ressalvas.',
+    'Retorne exclusivamente JSON válido no formato {"caption":"legenda e hashtags","cards":[{"title":"até 90 caracteres","body":"texto conciso, preferencialmente até 280 caracteres; limite absoluto de 420"}]}. Crie de 2 a 8 cards baseados no artigo. Preserve as ressalvas e distribua o conteúdo entre mais cards quando necessário.',
   reviewer:
     "Revise artigo e cards contra as fontes. Liste afirmações sem suporte, distorções, referências ausentes e correções necessárias. Não certifique a correção clínica. Não altere os materiais.",
 };

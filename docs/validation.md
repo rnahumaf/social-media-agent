@@ -62,3 +62,7 @@ O serviço Cloudflare recebeu um bucket R2 exclusivo para JPEGs temporários. O 
 ## Reabertura do cofre — alfa 0.1.0-alpha.9
 
 A senha-mestra pode ser lembrada fora do workspace, cifrada pelo armazenamento seguro do sistema operacional. O identificador persistido é um hash do caminho normalizado; o arquivo local não contém o caminho nem a senha em texto puro. O aplicativo testa a reabertura automática por IPC real, confirma que outro workspace continua bloqueado e verifica que **Bloquear e esquecer neste computador** remove a lembrança. A cópia portátil continua exigindo a senha na primeira abertura em outro caminho.
+
+## Renderização adaptativa — alfa 0.1.0-alpha.10
+
+O template seleciona a primeira escala tipográfica que mantém título e corpo acima dos mínimos de legibilidade, dentro da área anterior ao rodapé. Um teste de fronteira produz JPEG 1080 × 1350 com um corpo de 420 caracteres. Os quatro cards do workspace real que revelou o problema, com corpos entre 415 e 419 caracteres, também foram renderizados em memória; três mantiveram 36 px e um foi ajustado para 34 px. A interface compartilha uma única geração entre as miniaturas do mesmo carrossel, em vez de repetir a chamada para cada card.

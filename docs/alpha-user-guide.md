@@ -1,4 +1,4 @@
-# Primeiro acesso — alfa 0.1.0-alpha.9
+# Primeiro acesso — alfa 0.1.0-alpha.10
 
 Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. A tela **Modelos e conexões** apresenta três etapas. Você não precisa instalar Node, criar aplicativos de desenvolvedor ou copiar tokens. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
 
@@ -27,6 +27,8 @@ Para gerar conteúdo real, informe sua chave OpenRouter no cofre, escolha os mod
 Se o OpenRouter limitar uma chamada, o aplicativo tenta novamente após uma espera curta e pode usar outro provedor do mesmo modelo. O modelo selecionado não muda. Se o limite persistir, aguarde um minuto e confira os limites da chave e o saldo da conta OpenRouter.
 
 Durante a produção, **Ver atividade dos agentes** mostra a etapa atual, as ferramentas chamadas e os resultados já salvos. Se uma etapa falhar, a execução fica em **Aguardando nova tentativa**. Abra o painel, escreva uma orientação opcional e escolha **Retomar com orientação**, ou use **Tentar novamente** sem acrescentar texto. A retomada conserva a consulta, as fontes e os textos concluídos. Uma resposta de carrossel que exceda os limites é corrigida automaticamente; se a estrutura estiver completa, a retomada também pode ajustar a resposta já salva sem repetir o agente social. Workspaces que falharam nas versões alfa anteriores são convertidos automaticamente quando possível.
+
+Os cards são renderizados em JPEG 1080 × 1350. O template ajusta a tipografia quando um texto válido ocupa mais linhas, preservando margens e rodapé. Novas gerações recebem a orientação de distribuir textos extensos em mais cards.
 
 **Bloquear e esquecer neste computador** fecha o cofre e apaga a lembrança local da senha. **Desconectar** remove a autorização deste workspace. Para invalidar também cópias anteriores, revogue o aplicativo nas configurações do provedor. Para transferir seu histórico, use **Copiar workspace**, abra a cópia no outro computador e use a mesma senha-mestra. A lembrança local não acompanha a cópia. Apenas um computador deve escrever nessa pasta por vez.
 

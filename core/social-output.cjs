@@ -36,7 +36,13 @@ const responseFormat = {
             additionalProperties: false,
             properties: {
               title: { type: "string", minLength: 1, maxLength: 90 },
-              body: { type: "string", minLength: 1, maxLength: 420 },
+              body: {
+                type: "string",
+                minLength: 1,
+                maxLength: 420,
+                description:
+                  "Texto conciso, preferencialmente com até 280 caracteres; limite absoluto de 420.",
+              },
             },
             required: ["title", "body"],
           },

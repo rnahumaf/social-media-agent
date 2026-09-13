@@ -7,7 +7,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            platform: windows
+            arch: x64
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+          - os: macos-15-intel
+            platform: macos
+            arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -20,13 +29,15 @@ jobs:
       - run: npm run build
       - run: npm audit --omit=dev
       - run: npx install-electron
-      - if: runner.os == 'Windows'
-        run: npx electron-builder --win portable --publish never
-      - if: runner.os == 'macOS'
-        run: npx electron-builder --mac zip --publish never
+      - if: matrix.platform == 'windows'
+        run: npx electron-builder --win portable --x64 --publish never
+      - if: matrix.platform == 'macos' && matrix.arch == 'arm64'
+        run: npx electron-builder --mac zip --arm64 --publish never
+      - if: matrix.platform == 'macos' && matrix.arch == 'x64'
+        run: npx electron-builder --mac zip --x64 --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: beta-${{ matrix.os }}
+          name: beta-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
             release/*.exe
             release/*.zip

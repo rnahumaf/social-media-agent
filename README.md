@@ -4,7 +4,17 @@ Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e apr
 
 ## Experimentar
 
-No Windows, abra o executável portátil em `release/` e escolha uma pasta vazia para o workspace. Siga o [guia de primeiro acesso](docs/first-access.md) para conectar suas contas. Para explorar a produção, comece em **demonstração local**, crie uma pauta e clique em **Iniciar produção**. Edite o artigo e os cards, salve uma revisão e abra **Aprovação** para conferir os JPEGs e exportar.
+Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.1](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.1):
+
+| Sistema | Download |
+| --- | --- |
+| Windows 10/11, 64 bits | [Social Media Agent 0.1.0-beta.1 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.1/Social.Media.Agent.0.1.0-beta.1.exe) |
+| macOS com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.1 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.1/Social%20Media%20Agent-0.1.0-beta.1-arm64-mac.zip) |
+| macOS com processador Intel | [Social Media Agent 0.1.0-beta.1 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.1/Social%20Media%20Agent-0.1.0-beta.1-mac.zip) |
+
+No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
+
+Ao abrir o aplicativo, escolha uma pasta vazia para o workspace e siga o [guia de primeiro acesso](docs/first-access.md) para conectar suas contas. Para explorar a produção, comece em **demonstração local**, crie uma pauta e clique em **Iniciar produção**. Edite o artigo e os cards, salve uma revisão e abra **Aprovação** para conferir os JPEGs e exportar.
 
 Para desenvolver, use Node.js 22 ou superior:
 

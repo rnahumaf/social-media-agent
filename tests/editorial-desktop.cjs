@@ -472,6 +472,7 @@ app.whenReady().then(async () => {
   }
 });
 app.on("will-quit", () => {
-  if (fs.existsSync(root) && path.basename(root).startsWith("editorial-ui-"))
-    fs.rmSync(root, { recursive: true, force: true });
+  const workspacePath = path.join(root, "workspace");
+  if (fs.existsSync(workspacePath))
+    fs.rmSync(workspacePath, { recursive: true, force: true });
 });

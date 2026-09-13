@@ -36,7 +36,7 @@ O serviço troca o código e obtém o token de longa duração. O desktop consul
 
 Nesta implementação, autorizações expiradas ou revogadas exigem reconexão; renovação automática ainda não foi implementada. Desconectar elimina o token apenas no workspace atual. Cópias anteriores devem ser removidas ou o acesso deve ser revogado nas configurações do Instagram.
 
-O Worker foi implantado e o endpoint de saúde respondeu. O segredo Instagram foi cadastrado e a autorização real de @rnaf.me foi validada por consulta autenticada, sem publicação. Testes locais com fixtures não comprovam aprovação da Meta nem conexão com uma conta real. Antes de distribuir: validar callback HTTPS real, consentimento com as duas permissões, identidade retornada, reinício e transferência do cofre e cancelamento no navegador.
+O Worker foi implantado e o endpoint de saúde respondeu. Em 13/09/2026, o fluxo real de @rnaf.me validou callback, consentimento, consulta autenticada, hospedagem temporária dos quatro JPEGs, criação do carrossel, publicação e remoção das cópias temporárias. Isso comprova a integração com a conta de homologação, mas não substitui a aprovação de acesso da Meta para contas de terceiros.
 
 Referência: [Login de Empresa no Instagram](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login).
 

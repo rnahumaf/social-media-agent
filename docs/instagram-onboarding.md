@@ -25,7 +25,7 @@ Estas etapas pertencem ao responsável por distribuir o aplicativo. Usuários fi
 
 ## Estado da validação
 
-Cadastro, callback, segredo e páginas públicas foram configurados. O fluxo OAuth real pelo Cloudflare obteve token de longa duração e a consulta autenticada confirmou @rnaf.me em 12/09/2026. O diagnóstico descartou o token, sem gravá-lo no workspace nem publicar conteúdo. Em 13/09/2026, o nome, domínio, política de privacidade, termos, exclusão de dados e categoria foram preparados no portal Meta. O acesso a contas sem função no aplicativo depende da publicação e da análise de acesso da Meta.
+Cadastro, callback, segredo e páginas públicas foram configurados. O fluxo OAuth real pelo Cloudflare obteve token de longa duração e a consulta autenticada confirmou @rnaf.me. Em 13/09/2026, o nome, domínio, política de privacidade, termos, exclusão de dados e categoria foram preparados no portal Meta. Um carrossel real de quatro cards foi publicado, recebeu media ID e teve as cópias temporárias removidas. A chamada obrigatória pode levar até 24 horas para aparecer no formulário. O acesso a contas sem função no aplicativo depende da verificação empresarial e da análise de acesso da Meta.
 
 Não confunda aplicativo criado, conta autorizada, token válido e publicação bem-sucedida. Cada etapa precisa de uma confirmação própria. O teste de conexão não deve publicar conteúdo.
 

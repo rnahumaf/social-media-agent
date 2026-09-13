@@ -33,7 +33,9 @@ test("desktop completes OAuth and verifies identity without exposing token to br
       status: "ready",
       token: "fixture-token",
       expiresAt: Date.now() + 60000,
-      accountId: "123",
+      // The OAuth exchange subject can differ from the professional user_id
+      // returned by /me. The verified profile remains the publishing identity.
+      accountId: "456",
       mediaToken: "m".repeat(50),
     });
   };

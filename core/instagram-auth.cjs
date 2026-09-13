@@ -139,12 +139,8 @@ async function connect({
         )
           throw Error("Credencial inválida.");
         const account = await profile(result.token);
-        if (
-          result.accountId &&
-          (!/^\d+$/.test(String(result.accountId)) ||
-            String(result.accountId) !== account.id)
-        )
-          throw Error("A conta retornada pelo serviço não confere.");
+        if (result.accountId && !/^\d+$/.test(String(result.accountId)))
+          throw Error("O identificador retornado pelo serviço é inválido.");
         return {
           ...account,
           token: result.token,

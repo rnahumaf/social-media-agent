@@ -6,11 +6,11 @@ O aplicativo OAuth do Google está externo e **In production**. O escopo `https:
 
 O WordPress.com usa o consentimento próprio do usuário, sem lista de convites no produto. O fluxo foi validado em uma conta real com os escopos `posts media`.
 
-Na Meta, o callback, o segredo e as duas permissões mínimas foram validados com uma conta profissional. As páginas públicas, o domínio, o nome e a categoria estão preparados. A publicação para contas de terceiros ainda depende dos requisitos de análise e acesso exibidos no portal Meta; até a aprovação, somente contas com função no aplicativo conseguem concluir o Instagram Login.
+Na Meta, o callback, o segredo e as duas permissões mínimas foram validados com uma conta profissional. As páginas públicas, o domínio, o nome, a categoria, as descrições de uso e as instruções para o analista estão preparados. A solicitação de análise `1352443806693627` ainda exige verificação do portfólio empresarial, respostas de tratamento de dados, anexo da gravação e reconhecimento da chamada obrigatória pela Meta. A publicação para contas de terceiros depende da aprovação; até lá, somente contas com função no aplicativo conseguem concluir o Instagram Login.
 
 ## Conexões reais
 
-O OAuth Instagram foi concluído para @rnaf.me com perfil e publicação. A identidade foi consultada na API oficial após a troca do código pelo Worker HTTPS do Cloudflare.
+O OAuth Instagram foi concluído para @rnaf.me com perfil e publicação. A identidade foi consultada na API oficial após a troca do código pelo Worker HTTPS do Cloudflare. Em 13/09/2026, um carrossel real de quatro cards foi publicado com sucesso: o workspace persistiu os quatro IDs de filhos, o contêiner pai e o media ID, e registrou a remoção da mídia temporária. A gravação integral de 79 segundos foi revisada em 1920 × 1200 para a análise da Meta.
 
 O WordPress.com foi autorizado para rnahumaf8.wordpress.com no plano gratuito, com posts e media. Foram confirmados o vínculo do token ao site e a consulta autenticada de posts. O endereço HTTP retornado pelo OAuth é normalizado para HTTPS. A consulta de informações gerais do site retorna 403 com esses escopos; a validação usa token-info e listagem de posts.
 
@@ -28,6 +28,10 @@ A Meta mantém o aplicativo não publicado enquanto os requisitos de análise de
 
 Publicação real e geração paga não foram testadas. Fixtures verificam publicize=false no WordPress.com para impedir compartilhamento automático em outras redes. Assinatura, notarização e transferência entre máquinas Windows e macOS continuam pendentes.
 A versão 0.1.0-alpha.2 passou em 25 testes, build TypeScript/Vite e smoke Electron carregando o app.asar do pacote Windows.
+
+## Beta pública — 0.1.0-beta.1
+
+O repositório e a release são públicos. Google/Blogger está em produção e WordPress.com usa o consentimento próprio do usuário, sem convite. No Instagram, a distribuição continua limitada pela análise externa da Meta. O login passou a aceitar que o identificador técnico retornado pela troca OAuth seja diferente do `user_id` profissional confirmado por `/me`; o aplicativo continua usando somente a identidade profissional verificada para publicar.
 
 ## Blogger e primeiro acesso — alfa 0.1.0-alpha.3
 

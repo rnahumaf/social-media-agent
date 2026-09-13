@@ -477,7 +477,7 @@ app.whenReady().then(() => {
     height: 940,
     minWidth: 780,
     minHeight: 640,
-    title: "Social Media Agent · Alfa",
+    title: "Social Media Agent · Beta",
     backgroundColor: "#f7f8f5",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),

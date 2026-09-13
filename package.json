@@ -1,6 +1,6 @@
 {
   "name": "social-media-agent",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Estúdio editorial local com agentes e aprovação humana",
   "author": "Rodrigo Nahum",
@@ -33,7 +33,8 @@
     },
     "mac": {
       "target": "zip",
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "minimumSystemVersion": "12.0"
     },
     "directories": {
       "output": "release"
@@ -53,7 +54,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "electron": "^44.3.0",
+    "electron": "43.7.0",
     "electron-builder": "^26.0.0",
     "prettier": "^3.9.6",
     "typescript": "^5.7.0",

@@ -1,4 +1,4 @@
-# Primeiro acesso — beta 0.1.0-beta.1
+# Primeiro acesso — beta 0.1.0-beta.2
 
 Abra o aplicativo no seu computador e escolha uma pasta vazia para guardar seu trabalho. A tela **Modelos e conexões** apresenta três etapas. Você não precisa instalar Node, criar aplicativos de desenvolvedor ou copiar tokens. Faça login nas suas contas diretamente no navegador; não envie suas senhas ao responsável pelo teste.
 

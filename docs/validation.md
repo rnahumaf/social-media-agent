@@ -33,6 +33,10 @@ A versão 0.1.0-alpha.2 passou em 25 testes, build TypeScript/Vite e smoke Elect
 
 O repositório e a release são públicos. Google/Blogger está em produção e WordPress.com usa o consentimento próprio do usuário, sem convite. No Instagram, a distribuição continua limitada pela análise externa da Meta. O login passou a aceitar que o identificador técnico retornado pela troca OAuth seja diferente do `user_id` profissional confirmado por `/me`; o aplicativo continua usando somente a identidade profissional verificada para publicar.
 
+## Compatibilidade com macOS 12 — 0.1.0-beta.2
+
+O runtime foi fixado no Electron 43.7.0, a última série anterior à remoção do macOS 12, e o pacote declara macOS 12.0 como versão mínima. A distribuição gera arquivos separados em runners Apple Silicon e Intel. O CI lê `LSMinimumSystemVersion` do aplicativo empacotado e exige o valor `12.0` antes de guardar cada artefato. Assinatura e notarização permanecem pendentes.
+
 ## Blogger e primeiro acesso — alfa 0.1.0-alpha.3
 
 Foram acrescentados conexão Google, listagem dos blogs autorizados, seleção do destino, renovação do token e publicação protegida pela aprovação da revisão. O segredo do cliente Google fica no Cloudflare; tokens pessoais ficam no cofre. Os testes usam fixtures para confirmar vínculo ao blog, idempotência, bloqueio após resposta incerta e ausência de tokens no snapshot. A API Blogger foi habilitada e o estado Enabled foi confirmado no Google Cloud. Cliente web, callback HTTPS e segredo no Cloudflare estão configurados. Em 13/09/2026, o OAuth externo passou para produção e o escopo Blogger foi declarado como não sensível. Nenhum conteúdo do testador foi publicado.

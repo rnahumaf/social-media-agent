@@ -122,18 +122,31 @@ function parse(content) {
   return result.data;
 }
 
-function shorten(value, maximum) {
-  const clean = value.trim();
-  if (clean.length <= maximum) return clean;
-  let head = clean.slice(0, maximum - 1);
-  if (/^[\uD800-\uDBFF]$/.test(head.at(-1))) head = head.slice(0, -1);
-  const boundary = Math.max(
-    head.lastIndexOf(" "),
-    head.lastIndexOf("\n"),
-    head.lastIndexOf("\t"),
-  );
-  if (boundary >= Math.floor(maximum * 0.72)) head = head.slice(0, boundary);
-  return head.trimEnd() + "…";
+function splitText(value, maximum) {
+  let remaining = value.trim().replace(/\s+/g, " ");
+  const pieces = [];
+  while (remaining.length > maximum) {
+    let end = maximum;
+    if (/^[\uD800-\uDBFF]$/.test(remaining.at(end - 1))) end--;
+    const window = remaining.slice(0, end);
+    const sentence = Math.max(
+      window.lastIndexOf(". "),
+      window.lastIndexOf("? "),
+      window.lastIndexOf("! "),
+    );
+    const boundary = window.lastIndexOf(" ");
+    if (sentence >= Math.floor(maximum * 0.6)) end = sentence + 1;
+    else if (boundary >= Math.floor(maximum * 0.6)) end = boundary;
+    pieces.push(remaining.slice(0, end).trim());
+    remaining = remaining.slice(end).trim();
+  }
+  if (remaining) pieces.push(remaining);
+  return pieces;
+}
+
+function continuationTitle(title, part, total) {
+  const numbered = `${title} (${part}/${total})`;
+  return numbered.length <= 90 ? numbered : `Continuação (${part}/${total})`;
 }
 
 function fitLengths(content) {
@@ -150,21 +163,41 @@ function fitLengths(content) {
     !Array.isArray(value.cards)
   )
     return null;
-  const candidate = {
-    caption: value.caption.trim(),
-    cards: value.cards.map((card) => ({
+  if (
+    value.cards.some(
+      (card) =>
+        !card ||
+        typeof card !== "object" ||
+        typeof card.title !== "string" ||
+        typeof card.body !== "string" ||
+        !card.title.trim() ||
+        !card.body.trim(),
+    )
+  )
+    return null;
+  const cards = value.cards.flatMap((card) => {
+    const titleParts = splitText(card.title, 90);
+    const title = titleParts.shift();
+    const pieces = splitText([...titleParts, card.body.trim()].join(" "), 420);
+    return pieces.map((body, index) => ({
       title:
-        card && typeof card.title === "string"
-          ? shorten(card.title, 90)
-          : card?.title,
-      body:
-        card && typeof card.body === "string"
-          ? shorten(card.body, 420)
-          : card?.body,
-    })),
-  };
+        index === 0
+          ? title
+          : continuationTitle(title, index + 1, pieces.length),
+      body,
+    }));
+  });
+  if (cards.length > 8) return null;
+  const candidate = { caption: value.caption.trim(), cards };
   const result = socialSchema.safeParse(candidate);
   return result.success ? result.data : null;
 }
 
-module.exports = { socialSchema, responseFormat, parse, fitLengths, describe };
+module.exports = {
+  socialSchema,
+  responseFormat,
+  parse,
+  fitLengths,
+  describe,
+  splitText,
+};

@@ -348,7 +348,7 @@ async function validatedSocial({
         role: "social",
         title: "Limites aplicados pelo aplicativo",
         detail:
-          "A estrutura era válida; textos longos foram encurtados e o material original continua no histórico.",
+          "A estrutura era válida; textos longos foram divididos entre cards sem perda de conteúdo.",
       });
       return fitted;
     }
@@ -417,7 +417,7 @@ async function generate(
             role,
             title: "Resposta anterior recuperada",
             detail:
-              "O carrossel salvo foi ajustado aos limites e será retomado sem repetir a geração social.",
+              "O carrossel salvo foi dividido nos limites disponíveis e será retomado sem repetir a geração social.",
           }
         : {
             kind: "tool_call",

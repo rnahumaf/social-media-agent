@@ -1,15 +1,73 @@
 const { XMLParser } = require("fast-xml-parser");
-async function request(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    redirect: "error",
-    signal: options.signal
-      ? AbortSignal.any([options.signal, AbortSignal.timeout(90000)])
-      : AbortSignal.timeout(90000),
+const service = (url) =>
+  new URL(url).hostname === "openrouter.ai" ? "OpenRouter" : "PubMed";
+function retryDelay(response) {
+  const value = response.headers?.get?.("retry-after");
+  if (!value) return 1500;
+  const seconds = Number(value);
+  const delay = Number.isFinite(seconds)
+    ? seconds * 1000
+    : Date.parse(value) - Date.now();
+  return Number.isFinite(delay) ? Math.max(0, Math.min(delay, 5001)) : 1500;
+}
+function externalError(url, status) {
+  const name = service(url);
+  if (name === "OpenRouter") {
+    if (status === 401)
+      return Error(
+        "O OpenRouter recusou a chave (HTTP 401). Confira a chave salva no cofre.",
+      );
+    if (status === 402)
+      return Error(
+        "O OpenRouter informou saldo insuficiente (HTTP 402). Confira os créditos da conta.",
+      );
+    if (status === 429)
+      return Error(
+        "O OpenRouter limitou as chamadas (HTTP 429). Aguarde um minuto e tente novamente. Se continuar, confira os limites da chave e o saldo da conta no OpenRouter.",
+      );
+    if (status === 404)
+      return Error(
+        "O modelo escolhido não está disponível no OpenRouter (HTTP 404). Atualize o catálogo e selecione outro modelo.",
+      );
+  }
+  if (name === "PubMed" && status === 429)
+    return Error(
+      "O PubMed limitou temporariamente as consultas (HTTP 429). Aguarde um minuto e tente novamente.",
+    );
+  return Error(`${name} retornou HTTP ${status}.`);
+}
+const wait = (delay, signal) =>
+  new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, delay);
+    signal?.addEventListener("abort", abort, { once: true });
   });
-  if (!response.ok)
-    throw Error(`Serviço externo retornou HTTP ${response.status}.`);
-  return response.json();
+async function response(url, options = {}, type = "json") {
+  const attempts = 2;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const result = await fetch(url, {
+      ...options,
+      redirect: "error",
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(90000)])
+        : AbortSignal.timeout(90000),
+    });
+    if (result.ok) return result[type]();
+    const delay = retryDelay(result);
+    if (result.status !== 429 || attempt === attempts - 1 || delay > 5000)
+      throw externalError(url, result.status);
+    await wait(delay, options.signal);
+  }
+}
+async function request(url, options = {}) {
+  return response(url, options, "json");
 }
 async function models() {
   const data = await request("https://openrouter.ai/api/v1/models");
@@ -37,7 +95,8 @@ async function complete({ key, model, system, messages, signal }) {
       model,
       messages: [{ role: "system", content: system }, ...messages],
       max_tokens: 5000,
-      provider: { allow_fallbacks: false },
+      // Mantém o modelo escolhido e permite outro provedor desse mesmo modelo.
+      provider: { allow_fallbacks: true },
     }),
     signal,
   });
@@ -63,18 +122,16 @@ async function pubmed(query, signal) {
   const ids = search.esearchresult?.idlist || [];
   if (!ids.length) return [];
   await new Promise((r) => setTimeout(r, 400));
-  const response = await fetch(
+  const xml = await response(
     base + "efetch.fcgi?db=pubmed&retmode=xml&id=" + ids.join(","),
     {
       signal: signal
         ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
         : AbortSignal.timeout(30000),
     },
+    "text",
   );
-  if (!response.ok) throw Error("Falha ao consultar registros PubMed.");
-  const doc = new XMLParser({ ignoreAttributes: false }).parse(
-    await response.text(),
-  );
+  const doc = new XMLParser({ ignoreAttributes: false }).parse(xml);
   const articles = doc.PubmedArticleSet?.PubmedArticle;
   return (Array.isArray(articles) ? articles : [articles])
     .filter(Boolean)

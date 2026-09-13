@@ -1,13 +1,13 @@
 const test = require("node:test"),
   assert = require("node:assert/strict");
 const { complete, pubmed } = require("../core/providers.cjs");
-test("OpenRouter request uses selected model, bounded output and no provider fallback", async () => {
+test("OpenRouter keeps the selected model and permits provider failover", async () => {
   const original = global.fetch;
   global.fetch = async (url, options) => {
     const body = JSON.parse(options.body);
     assert.equal(body.model, "fixture/model");
     assert.equal(body.max_tokens, 5000);
-    assert.equal(body.provider.allow_fallbacks, false);
+    assert.equal(body.provider.allow_fallbacks, true);
     return {
       ok: true,
       json: async () => ({
@@ -25,6 +25,65 @@ test("OpenRouter request uses selected model, bounded output and no provider fal
       messages: [],
     });
     assert.equal(result.usage.total_tokens, 42);
+  } finally {
+    global.fetch = original;
+  }
+});
+test("OpenRouter retries a short 429 once and reports a persistent limit", async () => {
+  const original = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return {
+      ok: false,
+      status: 429,
+      headers: { get: () => "0" },
+    };
+  };
+  try {
+    await assert.rejects(
+      () =>
+        complete({
+          key: "fixture",
+          model: "fixture/model",
+          system: "Teste",
+          messages: [],
+        }),
+      /OpenRouter limitou as chamadas.*limites da chave.*saldo/,
+    );
+    assert.equal(calls, 2);
+  } finally {
+    global.fetch = original;
+  }
+});
+test("OpenRouter continues when the short 429 retry succeeds", async () => {
+  const original = global.fetch;
+  let calls = 0;
+  global.fetch = async () =>
+    ++calls === 1
+      ? {
+          ok: false,
+          status: 429,
+          headers: { get: () => "0" },
+        }
+      : {
+          ok: true,
+          json: async () => ({
+            model: "fixture/model",
+            choices: [
+              { message: { content: "Resposta" }, finish_reason: "stop" },
+            ],
+          }),
+        };
+  try {
+    const result = await complete({
+      key: "fixture",
+      model: "fixture/model",
+      system: "Teste",
+      messages: [],
+    });
+    assert.equal(result.content, "Resposta");
+    assert.equal(calls, 2);
   } finally {
     global.fetch = original;
   }

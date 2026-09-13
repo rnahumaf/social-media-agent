@@ -11,6 +11,7 @@ const path = require("node:path"),
   crypto = require("node:crypto");
 const { Workspace, current, assertApproved } = require("../core/workspace.cjs");
 const { run } = require("../core/pipeline.cjs");
+const { chatInstruction } = require("../core/editorial-prompts.cjs");
 const { svgCard } = require("../core/render.cjs");
 const providers = require("../core/providers.cjs");
 const publishers = require("../core/publish.cjs");
@@ -362,7 +363,8 @@ const actions = {
           key: w.secrets?.openrouter,
           model: w.state.settings.models.writer,
           system:
-            "Você é um assistente editorial. Responda à conversa em PT-BR. Não altere arquivos nem afirme ter publicado. Contexto: " +
+            chatInstruction +
+            "\n\nContexto editorial deste projeto:\n" +
             JSON.stringify({
               brief: p.brief,
               revision: current(p),

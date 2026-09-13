@@ -189,7 +189,7 @@ function initial() {
     format: 1,
     name: "Meu workspace",
     memory:
-      "Escreva em português brasileiro. Preserve incertezas e cite as fontes consultadas. Não apresente conteúdo como orientação clínica individual.",
+      "Escreva em português brasileiro para o público definido na pauta. Sustente uma tese clara, preserve incertezas específicas e cite as fontes consultadas perto das afirmações correspondentes.",
     settings: {
       demo: true,
       models: Object.fromEntries(roles.map((r) => [r, ""])),

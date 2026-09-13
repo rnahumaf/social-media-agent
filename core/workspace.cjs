@@ -184,6 +184,67 @@ function migrateSessions(state) {
   }
   return state;
 }
+function recoverTruncatedCarousels(state) {
+  const { fitLengths } = require("./social-output.cjs");
+  for (const p of state.projects) {
+    const revision = current(p);
+    if (!revision || !revision.cards.some((card) => card.body.endsWith("…")))
+      continue;
+    const session = [...p.sessions]
+      .reverse()
+      .find(
+        (item) =>
+          item.revisionId === revision.id &&
+          !item.truncationRecoveredAt &&
+          item.events?.some(
+            (event) =>
+              event.title === "Limites aplicados pelo aplicativo" &&
+              /encurtados/.test(event.detail || ""),
+          ),
+      );
+    if (!session) continue;
+    let recovered;
+    for (const response of [
+      ...(session.artifacts?.responses || []),
+    ].reverse()) {
+      if (response.role !== "social") continue;
+      recovered = fitLengths(response.content);
+      if (recovered) break;
+    }
+    if (!recovered) continue;
+    const before = revision.cards.reduce(
+      (length, card) => length + card.title.length + card.body.length,
+      0,
+    );
+    const after = recovered.cards.reduce(
+      (length, card) => length + card.title.length + card.body.length,
+      0,
+    );
+    if (after <= before) continue;
+    const restored = revisionSchema.parse({
+      ...revision,
+      ...recovered,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      sourceRevision: revision.id,
+    });
+    p.revisions.push(restored);
+    p.approval = null;
+    p.status = "review";
+    session.revisionId = restored.id;
+    session.truncationRecoveredAt = restored.createdAt;
+    session.events.push({
+      id: crypto.randomUUID(),
+      at: restored.createdAt,
+      kind: "tool_result",
+      role: "social",
+      title: "Texto integral do carrossel recuperado",
+      detail:
+        "A resposta salva foi dividida entre cards sem reticências adicionadas. A revisão anterior permanece no histórico.",
+    });
+  }
+  return state;
+}
 function initial() {
   return {
     format: 1,
@@ -265,7 +326,11 @@ class Workspace {
       );
       const result = db.exec("SELECT data FROM workspace WHERE id=1");
       const state = result.length
-        ? migrateSessions(stateSchema.parse(JSON.parse(result[0].values[0][0])))
+        ? recoverTruncatedCarousels(
+            migrateSessions(
+              stateSchema.parse(JSON.parse(result[0].values[0][0])),
+            ),
+          )
         : initial();
       const w = new Workspace();
       Object.assign(w, { dir, lock, handle, db, state, secrets: null });

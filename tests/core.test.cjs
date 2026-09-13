@@ -88,6 +88,82 @@ test("demo survives a workspace transfer with revisions, conversation and encryp
     copy.close();
   }
 });
+test("workspace recovers text truncated by the old carousel fallback", async (t) => {
+  const { w } = await fixture(t);
+  const p = w.create("Teste", "Brief", "query");
+  const fullBody = "texto preservado ".repeat(40).trim();
+  const truncatedBody = fullBody.slice(0, 419).trimEnd() + "…";
+  const revision = w.revise(p.id, {
+    article: "# Artigo",
+    caption: "Legenda",
+    cards: [
+      { title: "Card longo", body: truncatedBody },
+      { title: "Segundo", body: "Outro texto" },
+    ],
+  });
+  p.approval = { export: "aprovação-antiga" };
+  p.sessions.push({
+    id: "sessão-antiga",
+    status: "completed",
+    cursor: "done",
+    startedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    events: [
+      {
+        id: "evento-antigo",
+        at: new Date().toISOString(),
+        kind: "tool_result",
+        role: "social",
+        title: "Limites aplicados pelo aplicativo",
+        detail: "A estrutura era válida; textos longos foram encurtados.",
+      },
+    ],
+    artifacts: {
+      responses: [
+        {
+          id: "resposta-antiga",
+          role: "social",
+          content: JSON.stringify({
+            caption: "Legenda",
+            cards: [
+              { title: "Card longo", body: fullBody },
+              { title: "Segundo", body: "Outro texto" },
+            ],
+          }),
+          at: new Date().toISOString(),
+        },
+      ],
+    },
+    revisionId: revision.id,
+  });
+  w.save();
+  const directory = w.dir;
+  w.close();
+
+  const reopened = await Workspace.open(directory);
+  try {
+    const restoredProject = reopened.project(p.id);
+    const restored = current(restoredProject);
+    assert.equal(restoredProject.revisions.length, 2);
+    assert.equal(restored.sourceRevision, revision.id);
+    assert.equal(restoredProject.approval, null);
+    assert.equal(
+      restored.cards
+        .slice(0, -1)
+        .map((card) => card.body)
+        .join(" "),
+      fullBody,
+    );
+    assert.ok(restored.cards.every((card) => !card.body.endsWith("…")));
+    assert.ok(
+      restoredProject.sessions[0].events.some(
+        (event) => event.title === "Texto integral do carrossel recuperado",
+      ),
+    );
+  } finally {
+    reopened.close();
+  }
+});
 test("revision edits and destination changes invalidate approval", async (t) => {
   const { w } = await fixture(t);
   const p = w.create("Teste", "Brief", "query");

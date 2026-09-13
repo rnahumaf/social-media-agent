@@ -85,7 +85,10 @@ export type State = {
   name: string;
   memory: string;
   unlocked?: boolean;
+  vaultRemembered?: boolean;
+  vaultRememberError?: string;
   openrouterConfigured?: boolean;
+  instagramMediaConfigured?: boolean;
   settings: {
     demo: boolean;
     models: Record<string, string>;

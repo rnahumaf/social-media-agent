@@ -139,7 +139,21 @@ async function connect({
         )
           throw Error("Credencial inválida.");
         const account = await profile(result.token);
-        return { ...account, token: result.token, expiresAt: result.expiresAt };
+        if (
+          result.accountId &&
+          (!/^\d+$/.test(String(result.accountId)) ||
+            String(result.accountId) !== account.id)
+        )
+          throw Error("A conta retornada pelo serviço não confere.");
+        return {
+          ...account,
+          token: result.token,
+          expiresAt: result.expiresAt,
+          ...(typeof result.mediaToken === "string" &&
+          result.mediaToken.length >= 40
+            ? { mediaToken: result.mediaToken }
+            : {}),
+        };
       }
       await new Promise((resolve, reject) => {
         const done = () => {

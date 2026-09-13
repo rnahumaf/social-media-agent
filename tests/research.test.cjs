@@ -316,7 +316,10 @@ test("an invalid agent output is saved before validation pauses the session", as
     return completion("Revisão", input.model);
   };
 
-  await assert.rejects(run(w, p.id));
+  await assert.rejects(
+    run(w, p.id),
+    /não conseguiu entregar um carrossel válido após a correção automática/,
+  );
   const session = p.sessions[0];
   assert.equal(session.status, "paused");
   assert.equal(session.cursor, "social");
@@ -327,6 +330,144 @@ test("an invalid agent output is saved before validation pauses the session", as
       (response) =>
         response.role === "social" &&
         response.content === "saída social inválida, mas preservada",
+    ),
+  );
+  assert.equal(
+    session.artifacts.responses.filter(
+      (response) => response.role === "social" && response.phase === "repair",
+    ).length,
+    1,
+  );
+  assert.ok(!session.error.includes('"code"'));
+  assert.ok(
+    session.events.some((event) => event.title === "Correção automática salva"),
+  );
+});
+
+test("an overlong social response is condensed automatically without repeating earlier stages", async (t) => {
+  const { w, p } = await fixture(t);
+  providers.pubmed = async () => [source];
+  let socialCalls = 0;
+  providers.complete = async (input) => {
+    if (input.system.includes("Retorne somente JSON"))
+      return completion('{"query":"otitis dogs"}');
+    if (input.model === "social-model") {
+      socialCalls++;
+      if (socialCalls === 1) {
+        assert.equal(input.responseFormat?.type, "json_schema");
+        return completion(
+          JSON.stringify({
+            caption: "Legenda",
+            cards: [
+              { title: "Primeiro", body: "A".repeat(500) },
+              { title: "Segundo", body: "B".repeat(421) },
+            ],
+          }),
+          input.model,
+        );
+      }
+      assert.match(input.system, /Corrija a saída/);
+      assert.equal(input.responseFormat?.json_schema?.strict, true);
+      return completion(
+        JSON.stringify({
+          caption: "Legenda preservada",
+          cards: [
+            { title: "Primeiro", body: "Texto condensado A" },
+            { title: "Segundo", body: "Texto condensado B" },
+          ],
+        }),
+        input.model,
+      );
+    }
+    return completion("Conteúdo [PMID: 123]", input.model);
+  };
+
+  await run(w, p.id);
+  assert.equal(p.status, "review");
+  assert.equal(socialCalls, 2);
+  assert.equal(p.runs.filter((item) => item.role === "researcher").length, 2);
+  assert.equal(p.revisions[0].cards[0].body, "Texto condensado A");
+  assert.ok(
+    p.sessions[0].events.some(
+      (event) => event.title === "Carrossel corrigido automaticamente",
+    ),
+  );
+});
+
+test("valid JSON with only excessive lengths has a deterministic fallback when repair is unavailable", async (t) => {
+  const { w, p } = await fixture(t);
+  providers.pubmed = async () => [source];
+  let socialCalls = 0;
+  providers.complete = async (input) => {
+    if (input.system.includes("Retorne somente JSON"))
+      return completion('{"query":"otitis dogs"}');
+    if (input.model === "social-model") {
+      socialCalls++;
+      if (socialCalls === 2) throw Error("Falha transitória na correção");
+      return completion(
+        JSON.stringify({
+          caption: "Legenda",
+          cards: [
+            { title: "Título ".repeat(20), body: "Corpo ".repeat(100) },
+            { title: "Segundo", body: "Outro corpo ".repeat(50) },
+          ],
+        }),
+        input.model,
+      );
+    }
+    return completion("Conteúdo [PMID: 123]", input.model);
+  };
+
+  await run(w, p.id);
+  assert.equal(p.status, "review");
+  assert.equal(socialCalls, 2);
+  assert.ok(p.revisions[0].cards.every((card) => card.title.length <= 90));
+  assert.ok(p.revisions[0].cards.every((card) => card.body.length <= 420));
+  assert.ok(
+    p.sessions[0].events.some(
+      (event) => event.title === "Limites aplicados pelo aplicativo",
+    ),
+  );
+});
+
+test("retry reuses a saved length-only social output before making another social call", async (t) => {
+  const { w, p } = await fixture(t);
+  providers.pubmed = async () => [source];
+  providers.complete = async (input) => {
+    if (input.system.includes("Retorne somente JSON"))
+      return completion('{"query":"otitis dogs"}');
+    if (input.model === "social-model")
+      return completion("resposta estruturalmente inválida", input.model);
+    return completion("Conteúdo [PMID: 123]", input.model);
+  };
+  await assert.rejects(run(w, p.id));
+  const session = p.sessions[0];
+  session.artifacts.responses.push({
+    id: "saved-social",
+    role: "social",
+    content: JSON.stringify({
+      caption: "Legenda salva",
+      cards: [
+        { title: "Primeiro", body: "A".repeat(500) },
+        { title: "Segundo", body: "B".repeat(500) },
+      ],
+    }),
+    at: "now",
+  });
+  w.save();
+
+  let socialCalls = 0;
+  providers.complete = async (input) => {
+    if (input.model === "social-model") socialCalls++;
+    return completion("Revisão concluída", input.model);
+  };
+  await run(w, p.id, { resume: true });
+  assert.equal(socialCalls, 0);
+  assert.equal(p.status, "review");
+  assert.ok(p.revisions[0].cards.every((card) => card.body.length <= 420));
+  assert.ok(
+    session.events.some(
+      (event) => event.title === "Resposta anterior recuperada",
     ),
   );
 });

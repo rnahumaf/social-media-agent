@@ -30,6 +30,45 @@ test("OpenRouter keeps the selected model and permits provider failover", async 
     global.fetch = original;
   }
 });
+test("OpenRouter requires a provider that honors a requested JSON schema", async () => {
+  const original = global.fetch;
+  const responseFormat = {
+    type: "json_schema",
+    json_schema: {
+      name: "fixture",
+      strict: true,
+      schema: { type: "object", properties: {}, additionalProperties: false },
+    },
+  };
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body.response_format, responseFormat);
+    assert.equal(body.provider.require_parameters, true);
+    return {
+      ok: true,
+      json: async () => ({
+        model: "fixture/model",
+        choices: [{ message: { content: "{}" }, finish_reason: "stop" }],
+      }),
+    };
+  };
+  try {
+    assert.equal(
+      (
+        await complete({
+          key: "fixture",
+          model: "fixture/model",
+          system: "Teste",
+          messages: [],
+          responseFormat,
+        })
+      ).content,
+      "{}",
+    );
+  } finally {
+    global.fetch = original;
+  }
+});
 test("OpenRouter retries a short 429 once and reports a persistent limit", async () => {
   const original = global.fetch;
   let calls = 0;

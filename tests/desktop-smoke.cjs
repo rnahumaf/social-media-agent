@@ -5,8 +5,10 @@ const fs = require("node:fs"),
   path = require("node:path"),
   assert = require("node:assert/strict");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "editorial-desktop-"));
-let folder = path.join(root, "workspace");
+const workspaceFolder = path.join(root, "workspace");
+let folder = workspaceFolder;
 fs.mkdirSync(folder);
+app.setPath("userData", path.join(root, "user-data"));
 dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
 const realFetch = global.fetch;
 let instagramOpened = false;
@@ -122,11 +124,22 @@ app.whenReady().then(async () => {
     vaultState = await call("vault", {
       password: "desktop-fixture-password",
       values: { openrouter: "desktop-fixture-openrouter-key" },
+      remember: true,
     });
     assert.equal(vaultState.openrouterConfigured, true);
+    assert.equal(vaultState.vaultRemembered, true);
     assert.ok(
       !JSON.stringify(vaultState).includes("desktop-fixture-openrouter-key"),
     );
+    folder = path.join(root, "other-workspace");
+    fs.mkdirSync(folder);
+    vaultState = await call("open");
+    assert.equal(vaultState.unlocked, false);
+    folder = workspaceFolder;
+    vaultState = await call("open");
+    assert.equal(vaultState.unlocked, true);
+    assert.equal(vaultState.vaultRemembered, true);
+    assert.equal(vaultState.openrouterConfigured, true);
     let connected = await call("instagramConnect");
     assert.equal(connected.settings.instagramUsername, "desktop_fixture");
     assert.ok(instagramOpened);
@@ -178,6 +191,9 @@ app.whenReady().then(async () => {
     assert.equal(state.settings.instagramAccount, "");
     state = await call("wordpressDisconnect");
     assert.equal(state.settings.wordpressSiteId, "");
+    state = await call("lock");
+    assert.equal(state.unlocked, false);
+    assert.equal(state.vaultRemembered, false);
     console.log(
       "Desktop smoke passed: isolated preload, pipeline, JPEG, export, transferred workspace and mocked Instagram/WordPress/Blogger OAuth IPC.",
     );
@@ -187,7 +203,4 @@ app.whenReady().then(async () => {
     app.exitCode = 1;
     app.exit(1);
   }
-});
-app.on("quit", () => {
-  fs.rmSync(root, { recursive: true, force: true });
 });

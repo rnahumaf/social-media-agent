@@ -303,9 +303,15 @@ class Workspace {
     return structuredClone({
       ...this.state,
       unlocked: !!this.secrets,
+      vaultRemembered: !!this.vaultRemembered,
+      vaultRememberError: this.vaultRememberError,
       openrouterConfigured: this.secrets
         ? typeof this.secrets.openrouter === "string" &&
           !!this.secrets.openrouter.trim()
+        : undefined,
+      instagramMediaConfigured: this.secrets
+        ? typeof this.secrets.instagramMedia === "string" &&
+          this.secrets.instagramMedia.length >= 40
         : undefined,
     });
   }
@@ -340,6 +346,7 @@ class Workspace {
             "openrouter",
             "wordpress",
             "instagram",
+            "instagramMedia",
             "wordpressCom",
             "blogger",
           ].includes(k) &&

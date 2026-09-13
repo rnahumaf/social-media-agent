@@ -880,6 +880,30 @@ textarea {
 .check input {
   width: auto;
 }
+.vault-memory {
+  align-items: flex-start;
+  border: 1px solid #dce3d2;
+  border-radius: 6px;
+  padding: 12px;
+}
+.vault-memory input {
+  margin-top: 3px;
+}
+.check-copy {
+  display: grid;
+  gap: 3px;
+  color: #42533a;
+}
+.check-copy small {
+  color: #78856d;
+  line-height: 1.45;
+}
+.success-note {
+  color: #426848;
+}
+.warning-note {
+  color: #866623;
+}
 .overlay {
   position: fixed;
   inset: 0;

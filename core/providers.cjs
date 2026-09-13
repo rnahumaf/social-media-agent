@@ -82,7 +82,14 @@ async function models() {
       pricing: m.pricing,
     }));
 }
-async function complete({ key, model, system, messages, signal }) {
+async function complete({
+  key,
+  model,
+  system,
+  messages,
+  signal,
+  responseFormat,
+}) {
   if (!key) throw Error("A chave OpenRouter não foi informada.");
   if (!model) throw Error("Nenhum modelo foi escolhido para este agente.");
   const data = await request("https://openrouter.ai/api/v1/chat/completions", {
@@ -95,11 +102,15 @@ async function complete({ key, model, system, messages, signal }) {
       model,
       messages: [{ role: "system", content: system }, ...messages],
       max_tokens: 5000,
+      ...(responseFormat ? { response_format: responseFormat } : {}),
       // Alguns modelos usam raciocínio obrigatório. O esforço baixo reserva
       // tokens para a resposta final e o conteúdo interno não é retornado.
       reasoning: { effort: "low", exclude: true },
       // Mantém o modelo escolhido e permite outro provedor desse mesmo modelo.
-      provider: { allow_fallbacks: true },
+      provider: {
+        allow_fallbacks: true,
+        ...(responseFormat ? { require_parameters: true } : {}),
+      },
     }),
     signal,
   });

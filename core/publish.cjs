@@ -113,7 +113,7 @@ async function wordpress(w, id) {
     );
   }
 }
-async function instagram(w, id, urls) {
+async function instagram(w, id, urls = [], service) {
   const p = w.project(id),
     s = w.state.settings;
   assertApproved(p, s, "instagram");
@@ -135,33 +135,71 @@ async function instagram(w, id, urls) {
     throw Error(
       "Configure a conta profissional, a versão Graph e o token Instagram.",
     );
-  if (
-    !Array.isArray(urls) ||
-    urls.length !== r.cards.length ||
-    urls.length < 2 ||
-    urls.length > 10
-  )
-    throw Error("Informe uma URL pública JPEG por card, na mesma ordem.");
-  urls.forEach(httpsBase);
-  const sharp = require("sharp");
-  const { svgCard } = require("./render.cjs");
-  for (let i = 0; i < urls.length; i++) {
-    const response = await fetch(urls[i], {
-      redirect: "error",
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!response.ok)
-      throw Error(`Não foi possível verificar o JPEG do card ${i + 1}.`);
-    const remote = Buffer.from(await response.arrayBuffer());
-    const expected = await sharp(
-      Buffer.from(svgCard(r.cards[i], i, r.cards.length)),
-    )
-      .jpeg({ quality: 95 })
-      .toBuffer();
-    if (!remote.equals(expected))
+  if (!Array.isArray(urls)) throw Error("As URLs dos cards são inválidas.");
+  let hosted = [];
+  if (!urls.length) {
+    const media = require("./media-host.cjs");
+    if (!service || !w.secrets?.instagramMedia)
       throw Error(
-        `O JPEG público do card ${i + 1} difere da revisão aprovada. Hospede o arquivo exportado sem conversão.`,
+        "Reconecte o Instagram para habilitar a hospedagem temporária dos cards.",
       );
+    const sharp = require("sharp");
+    const { svgCard } = require("./render.cjs");
+    try {
+      for (let index = 0; index < r.cards.length; index++) {
+        const image = await sharp(
+          Buffer.from(svgCard(r.cards[index], index, r.cards.length)),
+        )
+          .jpeg({ quality: 95 })
+          .toBuffer();
+        hosted.push(
+          await media.upload(service, w.secrets.instagramMedia, image),
+        );
+      }
+      urls = hosted.map((item) => item.url);
+    } catch (error) {
+      await Promise.allSettled(
+        hosted.map((item) =>
+          media.remove(service, w.secrets.instagramMedia, item),
+        ),
+      );
+      throw error;
+    }
+  }
+  if (urls.length !== r.cards.length || urls.length < 2 || urls.length > 10)
+    throw Error("Informe uma URL pública JPEG por card, na mesma ordem.");
+  try {
+    urls.forEach(httpsBase);
+    const sharp = require("sharp");
+    const { svgCard } = require("./render.cjs");
+    for (let i = 0; i < urls.length; i++) {
+      const response = await fetch(urls[i], {
+        redirect: "error",
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!response.ok)
+        throw Error(`Não foi possível verificar o JPEG do card ${i + 1}.`);
+      const remote = Buffer.from(await response.arrayBuffer());
+      const expected = await sharp(
+        Buffer.from(svgCard(r.cards[i], i, r.cards.length)),
+      )
+        .jpeg({ quality: 95 })
+        .toBuffer();
+      if (!remote.equals(expected))
+        throw Error(
+          `O JPEG público do card ${i + 1} difere da revisão aprovada. Hospede o arquivo exportado sem conversão.`,
+        );
+    }
+  } catch (error) {
+    if (hosted.length) {
+      const media = require("./media-host.cjs");
+      await Promise.allSettled(
+        hosted.map((item) =>
+          media.remove(service, w.secrets.instagramMedia, item),
+        ),
+      );
+    }
+    throw error;
   }
   const base = `https://graph.instagram.com/${s.graphVersion}/${s.instagramAccount}`;
   const headers = {
@@ -224,6 +262,19 @@ async function instagram(w, id, urls) {
       remoteId: result.id,
       at: new Date().toISOString(),
     });
+    if (hosted.length) {
+      const media = require("./media-host.cjs");
+      const cleanup = await Promise.allSettled(
+        hosted.map((item) =>
+          media.remove(service, w.secrets.instagramMedia, item),
+        ),
+      );
+      p.publications.instagram.temporaryMedia = cleanup.every(
+        (item) => item.status === "fulfilled",
+      )
+        ? "removed"
+        : "cleanup_pending";
+    }
     w.save();
     return p.publications.instagram;
   } catch (e) {

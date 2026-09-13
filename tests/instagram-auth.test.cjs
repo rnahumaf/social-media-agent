@@ -33,6 +33,8 @@ test("desktop completes OAuth and verifies identity without exposing token to br
       status: "ready",
       token: "fixture-token",
       expiresAt: Date.now() + 60000,
+      accountId: "123",
+      mediaToken: "m".repeat(50),
     });
   };
   const result = await connect({
@@ -42,8 +44,73 @@ test("desktop completes OAuth and verifies identity without exposing token to br
     },
   });
   assert.equal(result.username, "fixture_account");
+  assert.equal(result.mediaToken, "m".repeat(50));
   assert.ok(checked);
   assert.ok(!opened.includes("fixture-token"));
+});
+test("Cloudflare Instagram callback issues temporary-media access bound to the authorized account", async (t) => {
+  const { AuthSessions } = await import("../auth-service/worker.mjs");
+  const previous = global.fetch;
+  t.after(() => {
+    global.fetch = previous;
+  });
+  let exchange = 0;
+  global.fetch = async () => {
+    exchange++;
+    return exchange === 1
+      ? Response.json({
+          data: [
+            {
+              access_token: "short-token",
+              user_id: "123",
+              permissions: [
+                "instagram_business_basic",
+                "instagram_business_content_publish",
+              ],
+            },
+          ],
+        })
+      : Response.json({ access_token: "long-token", expires_in: 3600 });
+  };
+  const worker = new AuthSessions(
+    {},
+    {
+      INSTAGRAM_APP_ID: "app-id",
+      INSTAGRAM_APP_SECRET: "app-secret",
+      MEDIA_SIGNING_SECRET: "media-secret",
+    },
+  );
+  const verifier = crypto.randomBytes(32).toString("base64url");
+  const origin = "https://auth.example.test";
+  const session = await (
+    await worker.fetch(
+      new Request(origin + "/sessions", {
+        method: "POST",
+        body: JSON.stringify({ challenge: hash(verifier) }),
+      }),
+    )
+  ).json();
+  assert.equal(
+    (
+      await worker.fetch(
+        new Request(
+          origin + "/oauth/callback?state=" + session.id + "&code=fixture",
+        ),
+      )
+    ).status,
+    200,
+  );
+  const result = await (
+    await worker.fetch(
+      new Request(origin + "/sessions/" + session.id, {
+        headers: { Authorization: "Bearer " + verifier },
+      }),
+    )
+  ).json();
+  assert.equal(result.status, "ready");
+  assert.equal(result.accountId, "123");
+  assert.ok(result.mediaToken.length >= 80);
+  assert.equal(exchange, 2);
 });
 test("OAuth binds delivery to desktop verifier, consumes state and delivers once", async (t) => {
   let calls = 0,

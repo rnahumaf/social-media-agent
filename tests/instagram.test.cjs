@@ -129,3 +129,65 @@ test("Instagram keeps container IDs and blocks retry after uncertain publish", a
   await assert.rejects(() => instagram(w, p.id, urls), /Já existe/);
   assert.equal(calls.length, 7);
 });
+
+test("Instagram hosts approved cards automatically and removes temporary copies after publishing", async (t) => {
+  const { w, p, images } = await fixture(t);
+  w.secrets.instagramMedia = "media-credential-" + "x".repeat(50);
+  w.approve(p.id, "instagram");
+  const original = global.fetch;
+  t.after(() => {
+    global.fetch = original;
+  });
+  const hosted = new Map();
+  let uploads = 0,
+    removals = 0;
+  global.fetch = async (url, options = {}) => {
+    const u = new URL(url);
+    if (u.origin === "https://auth.example.test") {
+      if (!options.method || options.method === "GET") {
+        assert.equal(options.headers?.Authorization, undefined);
+        const id = u.pathname.split("/").at(-1).replace(".jpg", "");
+        return new Response(hosted.get(id), {
+          headers: { "Content-Type": "image/jpeg" },
+        });
+      }
+      assert.equal(
+        options.headers?.Authorization,
+        "Bearer " + w.secrets.instagramMedia,
+      );
+      if (options.method === "POST") {
+        const index = uploads++;
+        const id = String(index + 1).repeat(43);
+        hosted.set(id, Buffer.from(options.body));
+        return Response.json(
+          {
+            id,
+            url: `https://auth.example.test/media/123456789/${id}.jpg`,
+          },
+          { status: 201 },
+        );
+      }
+      if (options.method === "DELETE") {
+        removals++;
+        return Response.json({ status: "removed" });
+      }
+    }
+    assert.equal(
+      options.headers.Authorization,
+      "Bearer fixture-token-not-real",
+    );
+    if (url.endsWith("/media_publish"))
+      return Response.json({ id: "published-automatic" });
+    if (url.includes("fields=status_code"))
+      return Response.json({ status_code: "FINISHED" });
+    return Response.json({ id: "container-automatic-" + Math.random() });
+  };
+
+  const result = await instagram(w, p.id, [], "https://auth.example.test");
+  assert.equal(result.status, "published");
+  assert.equal(result.remoteId, "published-automatic");
+  assert.equal(uploads, 2);
+  assert.equal(removals, 2);
+  assert.deepEqual([...hosted.values()], images);
+  assert.equal(result.temporaryMedia, "removed");
+});

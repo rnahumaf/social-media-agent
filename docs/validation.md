@@ -1,4 +1,4 @@
-# Validação do alfa — 12/09/2026
+# Validação do alfa — 13/09/2026
 
 ## Conexões reais
 
@@ -50,3 +50,15 @@ Cada execução passa a armazenar eventos de atividade e artefatos parciais no w
 Uma falha pausa a sessão no pesquisador, redator, social media ou revisor. **Tentar novamente** conserva as etapas anteriores; uma orientação opcional é persistida na conversa e enviada às etapas retomadas. Artigos concluídos antes de uma falha posterior ficam visíveis como rascunho parcial. Ao abrir um workspace das versões anteriores, uma execução incompleta é convertida em sessão retomável com as fontes e respostas disponíveis.
 
 O modelo `z-ai/glm-5.3-flash` informa raciocínio obrigatório e esforço máximo por padrão no catálogo OpenRouter. As chamadas agora solicitam esforço baixo e excluem esse conteúdo da resposta, reservando parte do limite para o texto final. Respostas textuais segmentadas também são normalizadas. Os testes cobrem persistência após reabrir, migração do formato anterior, retomada sem nova consulta ao PubMed, orientação do usuário e respostas sem texto final. O painel foi inspecionado na prévia próximo da largura mínima da janela.
+
+## Contratos e publicação direta — alfa 0.1.0-alpha.8
+
+A falha real do agente social foi reproduzida com quatro corpos acima de 420 caracteres. O workspace continha as seis fontes, o dossiê, o artigo e a resposta social completa. A nova retomada recupera essa resposta, ajusta somente os limites e segue ao revisor sem repetir as etapas anteriores. Novas chamadas sociais solicitam JSON Schema estrito ao OpenRouter; uma resposta inválida provoca uma correção automática e, para estruturas completas com excesso de texto, existe ajuste local de último recurso. A interface recebe mensagens legíveis e mantém os payloads originais apenas no histórico da sessão.
+
+Uma matriz local executa seis pautas editoriais com respostas válidas, cercadas por Markdown, malformadas, com oito cards, caracteres acentuados, emoji e limites excedidos. Os testes também cobrem falha da correção externa, retomada do material salvo, 429, resposta vazia, portabilidade do workspace e publicação idempotente ou incerta. Três consultas reais ao PubMed retornaram seis registros cada. O modelo escolhido `z-ai/glm-5.3-flash` foi confirmado no catálogo do OpenRouter com suporte a `response_format` e `structured_outputs`.
+
+O serviço Cloudflare recebeu um bucket R2 exclusivo para JPEGs temporários. O token de upload é emitido somente após OAuth Instagram, fica no cofre e é vinculado à conta autorizada. O Worker rejeita outro titular, serve o JPEG exato à Meta e aceita remoção autenticada; o aplicativo apaga as cópias após o processamento. Uma regra do bucket elimina objetos remanescentes em um dia. O endpoint de saúde implantado confirmou Instagram, WordPress.com, Blogger e mídia configurados.
+
+## Reabertura do cofre — alfa 0.1.0-alpha.9
+
+A senha-mestra pode ser lembrada fora do workspace, cifrada pelo armazenamento seguro do sistema operacional. O identificador persistido é um hash do caminho normalizado; o arquivo local não contém o caminho nem a senha em texto puro. O aplicativo testa a reabertura automática por IPC real, confirma que outro workspace continua bloqueado e verifica que **Bloquear e esquecer neste computador** remove a lembrança. A cópia portátil continua exigindo a senha na primeira abertura em outro caminho.

@@ -4,7 +4,16 @@
   "compatibility_date": "2026-09-12",
   "workers_dev": true,
   "observability": { "enabled": false },
-  "vars": { "INSTAGRAM_APP_ID": "29339966865592070", "WORDPRESS_CLIENT_ID": "148070", "GOOGLE_CLIENT_ID": "779599606980-luolboh1378pq98701dkkkfqq8b0u106.apps.googleusercontent.com" },
-  "durable_objects": { "bindings": [{ "name": "AUTH_SESSIONS", "class_name": "AuthSessions" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AuthSessions"] }]
+  "vars": {
+    "INSTAGRAM_APP_ID": "29339966865592070",
+    "WORDPRESS_CLIENT_ID": "148070",
+    "GOOGLE_CLIENT_ID": "779599606980-luolboh1378pq98701dkkkfqq8b0u106.apps.googleusercontent.com",
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "AUTH_SESSIONS", "class_name": "AuthSessions" }],
+  },
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "social-media-agent-alpha-media" },
+  ],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AuthSessions"] }],
 }

@@ -15,6 +15,58 @@ const hash = async (value) =>
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replaceAll("=", "");
+const encode = (value) =>
+  btoa(String.fromCharCode(...value))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+const decode = (value) => {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+  return Uint8Array.from(
+    atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4)),
+    (c) => c.charCodeAt(0),
+  );
+};
+async function mediaSignature(secret, payload) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  return encode(
+    new Uint8Array(
+      await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload)),
+    ),
+  );
+}
+export async function createMediaToken(secret, accountId, expiresAt) {
+  const payload = encode(
+    new TextEncoder().encode(
+      JSON.stringify({ accountId, expiresAt, nonce: random() }),
+    ),
+  );
+  return payload + "." + (await mediaSignature(secret, payload));
+}
+async function verifyMediaToken(secret, token, now) {
+  if (!secret || typeof token !== "string") return null;
+  const [payload, signature, extra] = token.split(".");
+  if (extra || !payload || !signature) return null;
+  const expected = await mediaSignature(secret, payload);
+  if (signature.length !== expected.length) return null;
+  let difference = 0;
+  for (let index = 0; index < signature.length; index++)
+    difference |= signature.charCodeAt(index) ^ expected.charCodeAt(index);
+  if (difference) return null;
+  try {
+    const data = JSON.parse(new TextDecoder().decode(decode(payload)));
+    if (!/^\d+$/.test(data.accountId) || data.expiresAt <= now) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 const reply = (body, status = 200, html = false) =>
   new Response(
     html
@@ -117,7 +169,73 @@ export class AuthSessions {
           instagramConfigured: !!this.env.INSTAGRAM_APP_SECRET,
           wordpressConfigured: !!this.env.WORDPRESS_CLIENT_SECRET,
           bloggerConfigured: !!this.env.GOOGLE_CLIENT_SECRET,
+          mediaConfigured: !!this.env.MEDIA_SIGNING_SECRET && !!this.env.MEDIA,
         });
+      const mediaMatch = /^\/media\/(\d+)\/([\w-]{43})\.jpg$/.exec(
+        url.pathname,
+      );
+      if (req.method === "GET" && mediaMatch) {
+        if (!this.env.MEDIA)
+          return reply({ error: "Mídia indisponível." }, 503);
+        const object = await this.env.MEDIA.get(
+          `${mediaMatch[1]}/${mediaMatch[2]}.jpg`,
+        );
+        if (!object) return reply({ error: "Mídia inexistente." }, 404);
+        return new Response(object.body, {
+          headers: {
+            "Content-Type": "image/jpeg",
+            "Content-Length": String(object.size),
+            "Cache-Control": "public, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
+      if (
+        (req.method === "POST" && url.pathname === "/media") ||
+        (req.method === "DELETE" && mediaMatch)
+      ) {
+        const token = req.headers
+          .get("Authorization")
+          ?.match(/^Bearer ([^\s]{40,4096})$/)?.[1];
+        const credential = await verifyMediaToken(
+          this.env.MEDIA_SIGNING_SECRET,
+          token,
+          now,
+        );
+        if (!credential || !this.env.MEDIA)
+          return reply({ error: "Hospedagem não autorizada." }, 401);
+        if (req.method === "DELETE") {
+          if (mediaMatch[1] !== credential.accountId)
+            return reply({ error: "Mídia inexistente." }, 404);
+          await this.env.MEDIA.delete(`${mediaMatch[1]}/${mediaMatch[2]}.jpg`);
+          return reply({ status: "removed" });
+        }
+        if (req.headers.get("Content-Type") !== "image/jpeg")
+          return reply({ error: "Formato inválido." }, 415);
+        const declared = Number(req.headers.get("Content-Length") || 0);
+        if (declared > 4_000_000)
+          return reply({ error: "Card muito grande." }, 413);
+        const image = new Uint8Array(await req.arrayBuffer());
+        if (
+          image.length < 4 ||
+          image.length > 4_000_000 ||
+          image[0] !== 0xff ||
+          image[1] !== 0xd8 ||
+          image[2] !== 0xff
+        )
+          return reply({ error: "JPEG inválido." }, 400);
+        const id = random();
+        await this.env.MEDIA.put(`${credential.accountId}/${id}.jpg`, image, {
+          httpMetadata: { contentType: "image/jpeg" },
+        });
+        return reply(
+          {
+            id,
+            url: `${origin}/media/${credential.accountId}/${id}.jpg`,
+          },
+          201,
+        );
+      }
       if (req.method === "POST" && route === "/sessions") {
         if (
           !(wordpress
@@ -287,6 +405,7 @@ export class AuthSessions {
             },
           );
           const short = response.data?.[0] || response;
+          const accountId = String(short.user_id || response.user_id || "");
           stage = "permissions";
           const permissions = Array.isArray(short.permissions)
             ? short.permissions
@@ -314,6 +433,17 @@ export class AuthSessions {
           s.result = {
             token: long.access_token,
             expiresAt: Date.now() + long.expires_in * 1000,
+            ...(/^\d+$/.test(accountId) ? { accountId } : {}),
+            ...(this.env.MEDIA_SIGNING_SECRET && /^\d+$/.test(accountId)
+              ? {
+                  mediaToken: await createMediaToken(
+                    this.env.MEDIA_SIGNING_SECRET,
+                    accountId,
+                    Date.now() +
+                      Math.min(long.expires_in * 1000, 60 * 86400000),
+                  ),
+                }
+              : {}),
           };
           s.status = "ready";
           return reply("Autorização recebida.", 200, true);

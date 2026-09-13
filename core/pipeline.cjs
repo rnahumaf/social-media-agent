@@ -2,6 +2,7 @@ const { current, revisionSchema } = require("./workspace.cjs");
 const providers = require("./providers.cjs");
 const crypto = require("node:crypto");
 const { z } = require("zod");
+const socialOutput = require("./social-output.cjs");
 
 const roles = ["researcher", "writer", "social", "reviewer"];
 const roleNames = {
@@ -261,27 +262,131 @@ async function research(w, p, session, signal, save) {
     "O pesquisador tentou duas buscas e não encontrou fontes no PubMed. Esclareça o tema ou o público e tente novamente.",
   );
 }
-function socialOutput(content, article) {
-  const social = JSON.parse(
-    content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""),
-  );
-  revisionSchema.parse({
-    id: "validation",
-    createdAt: "now",
-    article,
-    ...social,
-  });
-  if (social.cards.length < 2)
-    throw Error("O carrossel precisa de pelo menos dois cards.");
-  return social;
+function addUsage(target, usage = {}) {
+  for (const [key, value] of Object.entries(usage))
+    if (typeof value === "number") target[key] = (target[key] || 0) + value;
+  return target;
 }
-async function generate(w, p, session, signal, save) {
+async function validatedSocial({
+  w,
+  session,
+  run,
+  result,
+  article,
+  signal,
+  save,
+}) {
+  try {
+    return socialOutput.parse(result.content);
+  } catch (validation) {
+    persist(save, session, {
+      kind: "status",
+      role: "social",
+      title: "Ajustando o formato do carrossel",
+      detail: validation.message,
+    });
+    let repair;
+    try {
+      persist(save, session, {
+        kind: "tool_call",
+        role: "social",
+        title: "OpenRouter · corrigir o carrossel",
+        detail: "Uma correção automática será tentada antes de pausar a etapa.",
+      });
+      repair = await providers.complete({
+        key: w.secrets?.openrouter,
+        model: run.model,
+        system:
+          "Corrija a saída de um agente social media. Retorne somente o JSON solicitado, mantendo o sentido, as ressalvas e os fatos. Não acrescente campos. Condense o texto quando necessário.",
+        messages: [
+          {
+            role: "user",
+            content: JSON.stringify({
+              problem: validation.message,
+              article,
+              invalidOutput: result.content,
+            }),
+          },
+        ],
+        responseFormat: socialOutput.responseFormat,
+        signal,
+      });
+      addUsage(run.usage, repair.usage);
+      session.artifacts.responses.push({
+        id: crypto.randomUUID(),
+        parentId: run.id,
+        role: "social",
+        phase: "repair",
+        content: repair.content,
+        at: now(),
+      });
+      persist(save, session, {
+        kind: "tool_result",
+        role: "social",
+        title: "Correção automática salva",
+        detail: "A nova resposta foi preservada antes da validação.",
+      });
+      try {
+        const parsed = socialOutput.parse(repair.content);
+        persist(save, session, {
+          kind: "tool_result",
+          role: "social",
+          title: "Carrossel corrigido automaticamente",
+          detail: "Legenda e cards agora atendem ao formato e aos limites.",
+        });
+        return parsed;
+      } catch (repairValidation) {
+        validation = repairValidation;
+      }
+    } catch (repairError) {
+      if (signal?.aborted) throw repairError;
+      persist(save, session, {
+        kind: "status",
+        role: "social",
+        title: "Correção externa indisponível",
+        detail:
+          "O aplicativo verificará se consegue aplicar apenas os limites locais.",
+      });
+    }
+    const fitted =
+      socialOutput.fitLengths(repair?.content) ||
+      socialOutput.fitLengths(result.content);
+    if (fitted) {
+      persist(save, session, {
+        kind: "tool_result",
+        role: "social",
+        title: "Limites aplicados pelo aplicativo",
+        detail:
+          "A estrutura era válida; textos longos foram encurtados e o material original continua no histórico.",
+      });
+      return fitted;
+    }
+    throw Error(
+      `O Social media não conseguiu entregar um carrossel válido após a correção automática. ${validation.message} O artigo e todas as respostas continuam salvos para uma nova tentativa.`,
+    );
+  }
+}
+async function generate(
+  w,
+  p,
+  session,
+  signal,
+  save,
+  { reuseSavedSocial = false } = {},
+) {
   let dossier = session.artifacts.dossier || "";
   let article = session.artifacts.article || "";
   let social = session.artifacts.social;
   const start = Math.max(0, roles.indexOf(session.cursor));
   for (const role of roles.slice(start)) {
     signal?.throwIfAborted();
+    const previousAttempt = [...(session.artifacts.responses || [])]
+      .reverse()
+      .find((response) => response.role === role)?.content;
+    const recoveredSocial =
+      role === "social" && reuseSavedSocial && previousAttempt
+        ? socialOutput.fitLengths(previousAttempt)
+        : null;
     const run = startStep(
       p,
       session,
@@ -299,6 +404,7 @@ async function generate(w, p, session, signal, save) {
       dossier,
       article,
       social,
+      ...(previousAttempt ? { previousAttempt } : {}),
       previous: current(p),
       conversation: p.messages
         .filter((m) => !m.internal && !m.agent)
@@ -311,28 +417,49 @@ async function generate(w, p, session, signal, save) {
       at: now(),
       internal: true,
     });
-    persist(save, session, {
-      kind: "tool_call",
-      role,
-      title: w.state.settings.demo
-        ? "Gerador local · criar material"
-        : "OpenRouter · gerar material",
-      detail: `Modelo: ${run.model}`,
-    });
-    try {
-      const result = w.state.settings.demo
+    persist(
+      save,
+      session,
+      recoveredSocial
         ? {
-            content: demoOutput(role, p.title),
-            model: "Demonstração local",
+            kind: "tool_result",
+            role,
+            title: "Resposta anterior recuperada",
+            detail:
+              "O carrossel salvo foi ajustado aos limites e será retomado sem repetir a geração social.",
+          }
+        : {
+            kind: "tool_call",
+            role,
+            title: w.state.settings.demo
+              ? "Gerador local · criar material"
+              : "OpenRouter · gerar material",
+            detail: `Modelo: ${run.model}`,
+          },
+    );
+    try {
+      const result = recoveredSocial
+        ? {
+            content: JSON.stringify(recoveredSocial),
+            model: run.model,
             usage: {},
           }
-        : await providers.complete({
-            key: w.secrets?.openrouter,
-            model: run.model,
-            system: instructions[role] + "\n" + w.state.memory,
-            messages: [{ role: "user", content: context }],
-            signal,
-          });
+        : w.state.settings.demo
+          ? {
+              content: demoOutput(role, p.title),
+              model: "Demonstração local",
+              usage: {},
+            }
+          : await providers.complete({
+              key: w.secrets?.openrouter,
+              model: run.model,
+              system: instructions[role] + "\n" + w.state.memory,
+              messages: [{ role: "user", content: context }],
+              ...(role === "social"
+                ? { responseFormat: socialOutput.responseFormat }
+                : {}),
+              signal,
+            });
       run.model = result.model;
       run.usage = result.usage;
       session.artifacts.responses ||= [];
@@ -357,7 +484,21 @@ async function generate(w, p, session, signal, save) {
         session.artifacts.article = article;
       }
       if (role === "social") {
-        social = socialOutput(result.content, article);
+        social = await validatedSocial({
+          w,
+          session,
+          run,
+          result,
+          article,
+          signal,
+          save,
+        });
+        revisionSchema.parse({
+          id: "validation",
+          createdAt: "now",
+          article,
+          ...social,
+        });
         session.artifacts.social = social;
         const revision = w.revise(p.id, { article, ...social });
         session.revisionId = revision.id;
@@ -425,7 +566,9 @@ async function run(
       p.sources = structuredClone(session.artifacts.sources || p.sources);
       save();
     }
-    await generate(w, p, session, signal, save);
+    await generate(w, p, session, signal, save, {
+      reuseSavedSocial: resume && !instruction.trim(),
+    });
     session.status = "completed";
     session.cursor = "done";
     session.finishedAt = now();

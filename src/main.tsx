@@ -742,19 +742,28 @@ function App() {
                         </div>
                       ),
                     )}
-                    <label>
-                      URLs públicas dos JPEGs para Instagram (uma por linha)
-                      <textarea
-                        value={urls}
-                        onChange={(e) => setUrls(e.target.value)}
-                        placeholder="https://seu-site.com/card-1.jpg"
-                      />
-                    </label>
-                    <p className="small muted">
-                      Integração Instagram experimental. Exporte os JPEGs,
-                      hospede os arquivos sem alterá-los e informe as URLs na
-                      ordem dos cards. Conecte sua conta em Modelos e conexões.
-                    </p>
+                    {state?.instagramMediaConfigured ? (
+                      <p className="small muted">
+                        Ao publicar no Instagram, o aplicativo hospeda os cards
+                        temporariamente, confirma os arquivos e remove a cópia
+                        temporária depois que a Meta processa o carrossel.
+                      </p>
+                    ) : (
+                      <>
+                        <label>
+                          URLs públicas dos JPEGs para Instagram (uma por linha)
+                          <textarea
+                            value={urls}
+                            onChange={(e) => setUrls(e.target.value)}
+                            placeholder="https://seu-site.com/card-1.jpg"
+                          />
+                        </label>
+                        <p className="small muted">
+                          Reconecte o Instagram para ativar a hospedagem
+                          temporária. Até lá, informe uma URL HTTPS por card.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </section>
@@ -1133,6 +1142,7 @@ function SettingsPanel({
     [memory, setMemory] = useState(state.memory),
     [catalog, setCatalog] = useState<{ id: string; name: string }[]>([]),
     [password, setPassword] = useState(""),
+    [rememberVault, setRememberVault] = useState(true),
     [openrouter, setKey] = useState(""),
     [wordpress, setWp] = useState(""),
     [connecting, setConnecting] = useState(false),
@@ -1183,7 +1193,8 @@ function SettingsPanel({
       <h1>Modelos e conexões</h1>
       <p className="muted">
         A pasta de trabalho guarda o histórico. O cofre protege as credenciais
-        com sua senha-mestra.
+        com sua senha-mestra e pode ser reaberto pelo armazenamento seguro deste
+        computador.
       </p>
       <section aria-label="Primeiro acesso" className="setup-guide">
         <h2>Conecte suas contas no seu computador</h2>
@@ -1246,6 +1257,7 @@ function SettingsPanel({
               await act("vault", {
                 password,
                 values: { openrouter, wordpress },
+                remember: rememberVault,
               })
             ) {
               setPassword("");
@@ -1254,17 +1266,35 @@ function SettingsPanel({
             }
           }}
         >
-          <label>
-            Senha-mestra (mínimo de 10 caracteres)
-            <input
-              type="password"
-              autoComplete="off"
-              minLength={10}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
+          {!state.unlocked && (
+            <>
+              <label>
+                Senha-mestra (mínimo de 10 caracteres)
+                <input
+                  type="password"
+                  autoComplete="off"
+                  minLength={10}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+              <label className="check vault-memory">
+                <input
+                  type="checkbox"
+                  checked={rememberVault}
+                  onChange={(e) => setRememberVault(e.target.checked)}
+                />
+                <span className="check-copy">
+                  <strong>Lembrar neste computador</strong>
+                  <small>
+                    O sistema operacional protege a senha. Uma cópia aberta em
+                    outro computador continuará pedindo a senha na primeira vez.
+                  </small>
+                </span>
+              </label>
+            </>
+          )}
           <div className="split">
             <strong>OpenRouter</strong>
             <span className="tag">
@@ -1304,17 +1334,29 @@ function SettingsPanel({
             </div>
           </details>
           <p className="small muted">
-            Campos vazios preservam as credenciais existentes. A senha-mestra
-            não é salva. Guarde-a para abrir o cofre em outro computador.
+            Campos vazios preservam as credenciais existentes. Guarde a
+            senha-mestra para abrir uma cópia do workspace em outro computador.
           </p>
+          {state.unlocked && state.vaultRemembered && (
+            <p className="small success-note">
+              Este workspace será desbloqueado automaticamente neste computador.
+            </p>
+          )}
+          {state.vaultRememberError && (
+            <p className="small warning-note">{state.vaultRememberError}</p>
+          )}
           <div className="actions">
-            <button disabled={busy}>Criar ou desbloquear cofre</button>
+            <button disabled={busy}>
+              {state.unlocked
+                ? "Salvar credenciais"
+                : "Criar ou desbloquear cofre"}
+            </button>
             <button
               type="button"
               disabled={busy || !state.unlocked}
               onClick={() => act("lock")}
             >
-              Bloquear cofre
+              Bloquear e esquecer neste computador
             </button>
           </div>
         </form>
@@ -1367,6 +1409,13 @@ function SettingsPanel({
               "pt-BR",
             )}
             . Reconecte se o acesso expirar ou for revogado.
+          </p>
+        )}
+        {state.unlocked && state.settings.instagramAccount && (
+          <p className="small muted">
+            {state.instagramMediaConfigured
+              ? "Hospedagem temporária dos cards pronta para publicação direta."
+              : "Reconecte uma vez nesta versão para ativar a publicação direta dos cards."}
           </p>
         )}
         {!window.studio && (

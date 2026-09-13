@@ -1,4 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  shell,
+  safeStorage,
+} = require("electron");
 const path = require("node:path"),
   fs = require("node:fs"),
   crypto = require("node:crypto");
@@ -7,10 +14,12 @@ const { run } = require("../core/pipeline.cjs");
 const { svgCard } = require("../core/render.cjs");
 const providers = require("../core/providers.cjs");
 const publishers = require("../core/publish.cjs");
+const { createRememberedVaults } = require("./remembered-vaults.cjs");
 let win,
   w,
   busy = false,
-  controller;
+  controller,
+  rememberedVaults;
 if (!app.requestSingleInstanceLock()) app.quit();
 const instagramAuth = require("../core/instagram-auth.cjs");
 const authService =
@@ -140,6 +149,7 @@ const actions = {
       signal: controller.signal,
     });
     w.storeSecret("instagram", account.token);
+    w.storeSecret("instagramMedia", account.mediaToken || null);
     w.state.settings.instagramAccount = account.id;
     w.state.settings.instagramUsername = account.username;
     w.state.settings.instagramExpiresAt = account.expiresAt;
@@ -150,6 +160,7 @@ const actions = {
   },
   instagramDisconnect: () => {
     w.storeSecret("instagram", null);
+    w.storeSecret("instagramMedia", null);
     w.state.settings.instagramAccount = "";
     delete w.state.settings.instagramUsername;
     delete w.state.settings.instagramExpiresAt;
@@ -199,6 +210,20 @@ const actions = {
     const next = await Workspace.open(dir);
     w?.close();
     w = next;
+    w.vaultRemembered = rememberedVaults.has(dir);
+    if (w.vaultRemembered) {
+      let password = await rememberedVaults.load(dir);
+      if (password) {
+        try {
+          w.unlock(password);
+        } catch {
+          rememberedVaults.forget(dir);
+          w.vaultRemembered = false;
+        } finally {
+          password = null;
+        }
+      } else w.vaultRemembered = false;
+    }
     for (const p of w.state.projects) {
       if (p.status === "running") p.status = "interrupted";
       for (const r of p.runs)
@@ -258,8 +283,38 @@ const actions = {
     }
     return w.snapshot();
   },
-  vault: ({ password, values }) => w.unlock(password, values),
+  vault: async ({ password = "", values, remember = true } = {}) => {
+    if (w.secrets && !password) {
+      for (const [name, value] of Object.entries(values || {}))
+        if (
+          ["openrouter", "wordpress"].includes(name) &&
+          typeof value === "string" &&
+          value
+        )
+          w.storeSecret(name, value);
+    } else w.unlock(password, values);
+    if (!remember) {
+      rememberedVaults.forget(w.dir);
+      w.vaultRemembered = false;
+      delete w.vaultRememberError;
+    } else if (password) {
+      try {
+        w.vaultRemembered = await rememberedVaults.save(w.dir, password);
+        w.vaultRememberError = w.vaultRemembered
+          ? undefined
+          : "O armazenamento seguro do sistema não está disponível. O cofre continuará pedindo a senha ao abrir.";
+      } catch {
+        w.vaultRemembered = false;
+        w.vaultRememberError =
+          "O sistema não conseguiu proteger a senha neste computador. O cofre continuará pedindo a senha ao abrir.";
+      }
+    }
+    return w.snapshot();
+  },
   lock: () => {
+    rememberedVaults.forget(w.dir);
+    w.vaultRemembered = false;
+    delete w.vaultRememberError;
     w.lockVault();
     return w.snapshot();
   },
@@ -387,6 +442,8 @@ const actions = {
     });
     if (confirmation.response === 1) {
       if (channel === "blogger") await blogger.publish(w, id, authService);
+      else if (channel === "instagram")
+        await publishers.instagram(w, id, urls, authService);
       else await publishers[channel](w, id, urls);
     }
     return w.snapshot();
@@ -415,6 +472,10 @@ const actions = {
   },
 };
 app.whenReady().then(() => {
+  rememberedVaults = createRememberedVaults({
+    file: path.join(app.getPath("userData"), "remembered-vaults.json"),
+    safeStorage,
+  });
   win = new BrowserWindow({
     width: 1440,
     height: 940,

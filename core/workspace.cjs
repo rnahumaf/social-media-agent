@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const initSql = require("sql.js");
 const { z } = require("zod");
 const editorial = require("./editorial-model.cjs");
+const { reviewFeedback } = require("./provenance.cjs");
 const roles = ["researcher", "writer", "social", "reviewer"];
 const text = z.string().max(200000);
 const revisionSchema = z.object({
@@ -16,6 +17,9 @@ const revisionSchema = z.object({
   createdAt: z.string(),
   sourceRevision: z.string().optional(),
   sources: z.array(z.any()).optional(),
+  research: z
+    .object({ sessionId: z.string().optional(), searches: z.array(z.any()) })
+    .optional(),
   demo: z.boolean().optional(),
 });
 const stateSchema = z.object({
@@ -63,6 +67,7 @@ const stateSchema = z.object({
       approvalHistory: z.array(z.any()).optional(),
       approvalMedia: z.array(z.string()).optional(),
       publications: z.record(z.any()),
+      publicationHistory: z.array(z.any()).optional(),
     }),
   ),
 });
@@ -406,7 +411,17 @@ class Workspace {
   snapshot() {
     return structuredClone({
       ...this.state,
+      projects: this.state.projects.map((p) => ({
+        ...p,
+        reviewFeedback: reviewFeedback(p),
+      })),
       unlocked: !!this.secrets,
+      wordpressConfigured: !!(this.state.settings.wordpressProvider ===
+      "wordpress.com"
+        ? this.secrets?.wordpressCom
+        : this.secrets?.wordpress),
+      bloggerConfigured: !!this.secrets?.blogger,
+      instagramConfigured: !!this.secrets?.instagram,
       vaultRemembered: !!this.vaultRemembered,
       vaultRememberError: this.vaultRememberError,
       openrouterConfigured: this.secrets
@@ -578,6 +593,11 @@ class Workspace {
         research: editorial.researchSchema.nullable().optional(),
       })
       .parse(fields);
+    if (changes.title !== p.title) {
+      for (const publication of Object.values(p.publications)) {
+        if (!publication.title) publication.title = p.title;
+      }
+    }
     Object.assign(p, changes);
     p.approval = null;
     this.save();

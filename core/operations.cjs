@@ -6,14 +6,19 @@ class OperationManager {
   begin(name, projectId, cancellable = false) {
     if (this.#active) throw Error("Aguarde a operação atual ou cancele-a.");
     const operation = {
-      id: randomUUID(), name, projectId: projectId || null,
-      startedAt: new Date().toISOString(), cancellable,
+      id: randomUUID(),
+      name,
+      projectId: projectId || null,
+      startedAt: new Date().toISOString(),
+      cancellable,
       controller: cancellable ? new AbortController() : null,
     };
     this.#active = operation;
     return operation.id;
   }
-  get signal() { return this.#active?.controller?.signal; }
+  get signal() {
+    return this.#active?.controller?.signal;
+  }
   snapshot() {
     if (!this.#active) return null;
     const { controller, ...operation } = this.#active;
@@ -21,7 +26,9 @@ class OperationManager {
   }
   cancel(id) {
     if (!this.#active || this.#active.id !== id)
-      throw Error("Esta operação já terminou. Atualize o estado antes de cancelar.");
+      throw Error(
+        "Esta operação já terminou. Atualize o estado antes de cancelar.",
+      );
     if (!this.#active.cancellable)
       throw Error("Esta operação não pode ser interrompida.");
     const reason = new Error("Operação cancelada.");

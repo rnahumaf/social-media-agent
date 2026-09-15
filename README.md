@@ -64,7 +64,7 @@ Use **Copiar workspace** e escolha uma pasta vazia fora do workspace atual. A c�
 
 Os dados editoriais ficam legíveis no SQLite; apenas o cofre é criptografado. Use uma pasta adequada à sensibilidade do conteúdo. Não há recuperação da senha-mestra esquecida. Copiar tokens não impede expiração ou revogação.
 
-Após encerramento abrupto, confirme que nenhuma instância usa a pasta antes de remover `.workspace.lock`. Execuções interrompidas preservam a consulta, as fontes, os textos parciais e o histórico de atividade. Ao reabrir, use **Tentar novamente** para continuar da etapa interrompida; uma orientação opcional passa a integrar o contexto dos agentes. Uma publicação com resultado incerto exige conferência no serviço e nunca é repetida automaticamente. A reconciliação WordPress por ID existe no IPC; sua interface dedicada e a retomada dos contêineres Instagram ainda estão pendentes.
+Após encerramento abrupto, confirme que nenhuma instância usa a pasta antes de remover `.workspace.lock`. Execuções interrompidas preservam a consulta, as fontes, os textos parciais e o histórico de atividade. Ao reabrir, use **Tentar novamente** para continuar da etapa interrompida; uma orientação opcional passa a integrar o contexto dos agentes. Uma publicação com resultado incerto exige conferência no serviço e nunca é repetida automaticamente. Cada destino permite verificar resultados incertos: WordPress e Blogger pelo ID do post, Instagram pelo contêiner ou ID da publicação. A verificação não reenvia conteúdo; resultados não confirmados permanecem bloqueados. Veja os detalhes e testes em [P0: fluxo editorial](docs/p0-validation.md).
 
 O formato atual guarda o estado editorial versionado em uma linha SQLite e grava snapshots atômicos. Isso simplifica a beta; bases grandes exigirão tabelas normalizadas, migrações incrementais e paginação. As mensagens completas ficam preservadas; o contexto usa as últimas 20 mensagens de conversa, a revisão anterior e a memória editorial, sem busca semântica automática.
 
@@ -86,7 +86,7 @@ O build Windows portátil inclui o runtime. O build macOS deve ser gerado e vali
 
 O MVP usa um adaptador direto do OpenRouter em `core/providers.cjs`. Pi foi avaliado como base possível; não foi integrado nesta beta. O fluxo fixo dispensa ferramentas de terminal e mantém credenciais de publicação fora dos agentes. Veja [arquitetura](docs/architecture.md) e [fontes técnicas](docs/references.md).
 
-Limites conhecidos da beta: melhorar reconciliação; acrescentar limites de custo e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
+Limites conhecidos da beta: acrescentar limites de custo e verificação de citações; testar migração Windows ↔ Mac em máquinas reais; assinar as distribuições.
 
 WordPress.com também oferece conexão OAuth pelo botão **Conectar WordPress.com**, com seleção do site e autorização de posts e mídia. Sites com hospedagem própria mantêm a configuração de senha de aplicativo.
 Para começar, siga o [guia de primeiro acesso](docs/first-access.md). Cada pessoa cria seu próprio workspace e conecta suas próprias contas.

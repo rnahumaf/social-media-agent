@@ -91,6 +91,7 @@ async function rewrite(w, payload, signal) {
           }
         : {}),
     });
+    signal?.throwIfAborted();
     const value =
       input.target === "card"
         ? cardSchema
@@ -127,7 +128,7 @@ async function rewrite(w, payload, signal) {
       value,
     };
   } catch (error) {
-    run.status = "failed";
+    run.status = signal?.aborted ? "cancelled" : "failed";
     run.error = error.message;
     throw error;
   } finally {

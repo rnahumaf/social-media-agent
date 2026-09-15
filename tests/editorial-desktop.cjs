@@ -45,7 +45,11 @@ require("../electron/main.cjs");
 app.whenReady().then(async () => {
   const win = BrowserWindow.getAllWindows()[0];
   win.hide();
-  const evaluate = (code) => win.webContents.executeJavaScript(code);
+  const evaluate = (code) =>
+    win.webContents.executeJavaScript(code).catch((error) => {
+      console.error("Failed renderer evaluation:", code);
+      throw error;
+    });
   const call = (name, payload) =>
     evaluate(
       `window.studio[${JSON.stringify(name)}](${JSON.stringify(payload)})`,

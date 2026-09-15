@@ -1,4 +1,5 @@
 const { request } = require("./providers.cjs");
+const { failureStatus } = require("./publication-errors.cjs");
 const { serviceURL } = require("./instagram-auth.cjs");
 const { assertApproved, current } = require("./workspace.cjs");
 const base = "https://www.googleapis.com/blogger/v3";
@@ -9,10 +10,10 @@ function blogURL(value) {
     throw Error("Endereço Blogger inválido.");
   return u.href.replace(/\/$/, "");
 }
-async function blogs(token) {
+async function blogs(token, signal) {
   const data = await request(
     base + "/users/self/blogs?fields=items(id,name,url)",
-    { headers: { Authorization: "Bearer " + token } },
+    { headers: { Authorization: "Bearer " + token }, signal },
   );
   return (data.items || []).map((b) => {
     if (!/^\d+$/.test(b.id) || typeof b.name !== "string")
@@ -78,8 +79,7 @@ async function publish(w, id, service) {
     s = w.state.settings,
     r = current(p);
   assertApproved(p, s, "blogger");
-  if (r.demo)
-    throw Error("Gere uma revisão conectada antes de publicar.");
+  if (r.demo) throw Error("Gere uma revisão conectada antes de publicar.");
   const previous = p.publications.blogger;
   if (previous?.status === "uncertain" || previous?.status === "sending")
     throw Error(
@@ -87,14 +87,25 @@ async function publish(w, id, service) {
     );
   if (previous?.destination && previous.destination !== s.bloggerId)
     throw Error("Este projeto pertence a outro blog. Crie uma nova pauta.");
-  if (previous?.revision === r.id && previous.status === "published")
+  if (
+    previous?.revision === r.id &&
+    ["published", "reconciled"].includes(previous.status) &&
+    (!previous.title || previous.title === p.title)
+  )
     return previous;
   if (previous?.remoteId && !/^\d+$/.test(previous.remoteId))
     throw Error("Identificador remoto inválido.");
   const { token } = await verify(w, service);
   const { renderBlog } = await import("./blog-html.mjs");
   const content = renderBlog(r.article);
+  if (previous)
+    (p.publicationHistory ||= []).push({
+      channel: "blogger",
+      ...structuredClone(previous),
+    });
   p.publications.blogger = {
+    title: p.title,
+    url: previous?.url,
     status: "sending",
     revision: r.id,
     destination: s.bloggerId,
@@ -124,6 +135,7 @@ async function publish(w, id, service) {
     )
       throw Error("Publicação não confirmada.");
     p.publications.blogger = {
+      title: p.title,
       status: "published",
       revision: r.id,
       destination: s.bloggerId,
@@ -133,11 +145,13 @@ async function publish(w, id, service) {
     };
     w.save();
     return p.publications.blogger;
-  } catch {
-    p.publications.blogger.status = "uncertain";
+  } catch (error) {
+    p.publications.blogger.status = failureStatus(error);
     w.save();
     throw Error(
-      "Resultado Blogger incerto. Confira o blog; a repetição automática foi bloqueada.",
+      p.publications.blogger.status === "failed"
+        ? "O Blogger recusou o envio. Confira a conexão antes de tentar novamente."
+        : "Resultado Blogger incerto. Use Verificar resultado; nenhum envio será repetido automaticamente.",
     );
   }
 }

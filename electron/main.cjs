@@ -18,11 +18,17 @@ const testMode = !app.isPackaged && process.env.STUDIO_TEST_MODE === "1";
 const providers = require("../core/providers.cjs");
 const publishers = require("../core/publish.cjs");
 const { createRememberedVaults } = require("./remembered-vaults.cjs");
-let win,
-  w,
-  busy = false,
-  controller,
-  rememberedVaults;
+let win, w, rememberedVaults;
+const { OperationManager } = require("../core/operations.cjs");
+const operations = new OperationManager();
+const cancellable = new Set([
+  "run",
+  "chat",
+  "rewrite",
+  "instagramConnect",
+  "wordpressConnect",
+  "bloggerConnect",
+]);
 if (!app.requestSingleInstanceLock()) app.quit();
 const instagramAuth = require("../core/instagram-auth.cjs");
 const authService =
@@ -31,15 +37,14 @@ const blogger = require("../core/blogger.cjs");
 const actions = {
   bloggerConnect: async () => {
     if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
-    controller = new AbortController();
     const credential = await instagramAuth.connect({
       service: authService,
       provider: "blogger",
       openBrowser: (url) => shell.openExternal(url),
-      signal: controller.signal,
+      signal: operations.signal,
     });
-    const blogs = await blogger.blogs(credential.token);
-    controller.signal.throwIfAborted();
+    const blogs = await blogger.blogs(credential.token, operations.signal);
+    operations.signal.throwIfAborted();
     if (!blogs.length)
       throw Error(
         "Esta conta Google não administra blogs. Conecte a conta correta.",
@@ -88,13 +93,13 @@ const actions = {
   },
   wordpressConnect: async () => {
     if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
-    controller = new AbortController();
     const site = await instagramAuth.connect({
       service: authService,
       provider: "wordpress",
       openBrowser: (url) => shell.openExternal(url),
-      signal: controller.signal,
+      signal: operations.signal,
     });
+    operations.signal?.throwIfAborted();
     w.storeSecret("wordpressCom", site.token);
     Object.assign(w.state.settings, {
       wordpressProvider: "wordpress.com",
@@ -139,12 +144,12 @@ const actions = {
       );
     if (!w.secrets)
       throw Error("Desbloqueie o cofre antes de conectar o Instagram.");
-    controller = new AbortController();
     const account = await instagramAuth.connect({
       service: authService,
       openBrowser: (url) => shell.openExternal(url),
-      signal: controller.signal,
+      signal: operations.signal,
     });
+    operations.signal?.throwIfAborted();
     w.storeSecret("instagram", account.token);
     w.storeSecret("instagramMedia", account.mediaToken || null);
     w.state.settings.instagramAccount = account.id;
@@ -216,14 +221,14 @@ const actions = {
     return w.snapshot();
   },
   rewrite: async (payload) => {
-    controller = new AbortController();
     return require("../core/rewrite.cjs").rewrite(
       w,
       payload,
-      controller.signal,
+      operations.signal,
     );
   },
-  state: () => w?.snapshot() || null,
+  state: () =>
+    w ? { ...w.snapshot(), operation: operations.snapshot() } : null,
   open: async () => {
     const result = await dialog.showOpenDialog(win, {
       title: "Criar ou abrir workspace",
@@ -353,18 +358,14 @@ const actions = {
   },
   models: () => providers.models(),
   run: async ({ id, resume = false, instruction = "", targets }) => {
-    controller = new AbortController();
     return run(w, id, {
-      signal: controller.signal,
+      signal: operations.signal,
       resume: !!resume,
       instruction,
       targets,
     });
   },
-  cancel: () => {
-    controller?.abort();
-    return true;
-  },
+  cancel: ({ operationId } = {}) => operations.cancel(operationId),
   edit: ({ id, content, baseRevisionId }) => {
     const previous = current(w.project(id));
     if (baseRevisionId !== undefined && previous?.id !== baseRevisionId)
@@ -376,50 +377,83 @@ const actions = {
     await w.approve(id, channel);
     return w.snapshot();
   },
-  chat: async ({ id, message }) => {
+  chat: async ({ id, message, requestId = crypto.randomUUID() }) => {
     if (
       typeof message !== "string" ||
       !message.trim() ||
-      message.length > 10000
+      message.length > 10000 ||
+      typeof requestId !== "string" ||
+      requestId.length > 100
     )
       throw Error("Mensagem inválida.");
     const p = w.project(id);
-    p.messages.push({
-      role: "user",
-      content: message,
-      at: new Date().toISOString(),
-    });
+    let userMessage = p.messages.find(
+      (m) => m.role === "user" && m.requestId === requestId,
+    );
+    if (userMessage && userMessage.content !== message)
+      throw Error("Este envio pertence a outra mensagem.");
+    if (userMessage?.status === "completed") return w.snapshot();
+    if (!userMessage) {
+      userMessage = {
+        role: "user",
+        content: message,
+        requestId,
+        at: new Date().toISOString(),
+      };
+      p.messages.push(userMessage);
+    }
+    userMessage.status = "sending";
+    delete userMessage.error;
     w.save();
-    const result =
-      testMode && w.state.settings.demo
-        ? {
-            content:
-              "Sua orientação ficou registrada neste projeto. Ao gerar uma nova versão, os agentes receberão as mensagens recentes. Este modo demonstra o fluxo sem chamar modelos.",
-          }
-        : await providers.complete({
-            key: w.secrets?.openrouter,
-            model: w.state.settings.models.writer,
-            system:
-              chatInstruction +
-              "\n\nContexto editorial deste projeto:\n" +
-              JSON.stringify({
-                brief: p.brief,
-                revision: current(p),
-                memory: editorial.knowledgeFor(w.state, "writer"),
-              }),
-            messages: p.messages
-              .filter((m) => !m.internal && !m.agent)
-              .slice(-20)
-              .map(({ role, content }) => ({ role, content })),
-          });
-    p.messages.push({
-      role: "assistant",
-      content: result.content,
-      at: new Date().toISOString(),
-      usage: result.usage,
-    });
-    w.save();
-    return w.snapshot();
+    try {
+      const result =
+        testMode && w.state.settings.demo
+          ? {
+              content:
+                "Sua orientação ficou registrada. Ao gerar uma revisão, os agentes receberão as mensagens recentes.",
+            }
+          : await providers.complete({
+              key: w.secrets?.openrouter,
+              model:
+                w.state.settings.models[
+                  editorial.channels(p).includes("blog") ? "writer" : "social"
+                ],
+              signal: operations.signal,
+              system:
+                chatInstruction +
+                "\n\nContexto editorial deste projeto:\n" +
+                JSON.stringify({
+                  brief: p.brief,
+                  revision: current(p),
+                  memory: editorial.knowledgeFor(
+                    w.state,
+                    editorial.channels(p).includes("blog")
+                      ? "writer"
+                      : "social",
+                  ),
+                }),
+              messages: p.messages
+                .filter((m) => !m.internal && !m.agent)
+                .slice(-20)
+                .map(({ role, content }) => ({ role, content })),
+            });
+      operations.signal?.throwIfAborted();
+      userMessage.status = "completed";
+      p.messages.push({
+        role: "assistant",
+        content: result.content,
+        at: new Date().toISOString(),
+        usage: result.usage,
+        requestId,
+      });
+      w.save();
+      return w.snapshot();
+    } catch (error) {
+      userMessage.status = operations.signal?.aborted ? "cancelled" : "failed";
+      userMessage.error = error.message;
+      w.save();
+      throw error;
+    }
   },
   backup: async () => {
     const result = await dialog.showOpenDialog(win, {
@@ -483,10 +517,15 @@ const actions = {
     assertApproved(p, w.state.settings, channel);
     const confirmation = await dialog.showMessageBox(win, {
       type: "question",
-      buttons: ["Cancelar", "Publicar agora"],
+      buttons: [
+        "Cancelar",
+        p.publications[channel]?.remoteId && channel !== "instagram"
+          ? "Atualizar agora"
+          : "Publicar agora",
+      ],
       defaultId: 0,
       cancelId: 0,
-      message: `Publicar a revisão atual de “${p.title}” no ${channel}?`,
+      message: `${p.publications[channel]?.remoteId && channel !== "instagram" ? "Atualizar o post existente com" : "Publicar"} a revisão atual de “${p.title}” no ${channel}?`,
       detail:
         channel === "blogger"
           ? "Destino: " + w.state.settings.bloggerUrl
@@ -500,28 +539,8 @@ const actions = {
     }
     return w.snapshot();
   },
-  reconcile: async ({ id, remoteId }) => {
-    if (!/^\d+$/.test(remoteId))
-      throw Error("Informe o ID numérico do post existente.");
-    const p = w.project(id);
-    if (p.publications.wordpress?.status !== "uncertain")
-      throw Error("Não há publicação incerta para reconciliar.");
-    const s = w.state.settings;
-    const access = publishers.wordpressAccess(w);
-    const post = await providers.request(access.base + "/posts/" + remoteId, {
-      headers: { Authorization: access.authorization },
-    });
-    if (post.status !== "publish")
-      throw Error("O post informado não está publicado.");
-    p.publications.wordpress = {
-      ...p.publications.wordpress,
-      status: "reconciled",
-      remoteId: post.id || post.ID,
-      url: post.link || post.URL,
-    };
-    w.save();
-    return w.snapshot();
-  },
+  reconcile: (payload) =>
+    require("../core/reconcile.cjs").reconcile(w, payload, authService),
 };
 app.whenReady().then(() => {
   rememberedVaults = createRememberedVaults({
@@ -577,31 +596,32 @@ app.whenReady().then(() => {
       if (!["open", "state", "cancel", "models"].includes(name) && !w)
         throw Error("Abra um workspace.");
       const mutation = !["state", "cancel", "models", "render"].includes(name);
-      if (mutation && busy)
-        throw Error("Aguarde a operação atual ou cancele a geração.");
-      if (mutation) busy = true;
+      const operationId = mutation
+        ? operations.begin(name, payload?.id, cancellable.has(name))
+        : null;
       try {
         return await action(payload);
       } catch (e) {
         throw Error(e.message || "Operação não concluída.");
       } finally {
-        if (mutation) busy = false;
+        if (operationId) operations.finish(operationId);
       }
     });
   win.loadFile(path.join(__dirname, "../dist/index.html"));
   win.on("close", (event) => {
-    if (busy) {
+    if (operations.snapshot()) {
       event.preventDefault();
       dialog.showMessageBox(win, {
-        message:
-          "Aguarde a operação atual antes de fechar. Você pode cancelar a geração.",
+        message: operations.snapshot()?.cancellable
+          ? "Há uma operação em andamento. Use Cancelar no aplicativo antes de fechar."
+          : "Há uma operação que precisa terminar antes de fechar o aplicativo.",
       });
     }
   });
 });
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
-  if (!busy && w) {
+  if (!operations.snapshot() && w) {
     w.close();
     w = null;
   }

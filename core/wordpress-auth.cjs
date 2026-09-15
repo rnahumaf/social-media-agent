@@ -1,5 +1,5 @@
 const { request } = require("./providers.cjs");
-async function profile(token, siteId, siteUrl) {
+async function profile(token, siteId, siteUrl, signal) {
   if (!/^\d+$/.test(siteId) || siteId === "0")
     throw Error("Selecione um site WordPress.com.");
   const url = new URL(siteUrl);
@@ -16,6 +16,7 @@ async function profile(token, siteId, siteUrl) {
   const info = await request(
     "https://public-api.wordpress.com/oauth2/token-info?" +
       new URLSearchParams({ client_id: clientId, token }),
+    { signal },
   );
   if (
     String(info.blog_id) !== siteId ||
@@ -26,7 +27,7 @@ async function profile(token, siteId, siteUrl) {
     throw Error("O token não confirmou este site e suas permissões.");
   await request(
     `https://public-api.wordpress.com/rest/v1.1/sites/${siteId}/posts/?status=draft&number=1&fields=found`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: { Authorization: `Bearer ${token}` }, signal },
   );
   return {
     siteId,

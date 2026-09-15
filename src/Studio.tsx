@@ -32,6 +32,8 @@ import { channelsOf, defaultStyle, knowledgeOf } from "./editorial";
 import { SettingsPanel, RunActivity } from "./panels";
 import BlogEditor, { BlogPreview } from "./BlogEditor";
 import CardEditor, { CardPreviews } from "./CardEditor";
+import PublishDestinations from "./PublishDestinations";
+import RevisionSources from "./RevisionSources";
 const api = window.studio || preview;
 const labels: Record<string, string> = {
   briefing: "Rascunho",
@@ -269,10 +271,16 @@ export default function App() {
         })
       | null
     >(null);
+  const activeAction = useRef<symbol | null>(null);
+  const chatRequest = useRef<{
+    id: string;
+    projectId: string;
+    message: string;
+  } | null>(null);
   const p = state?.projects.find((p) => p.id === id),
     r = p?.revisions.at(-1),
     session = p?.sessions?.at(-1),
-    busy = !!working;
+    busy = !!working || !!state?.operation;
   const selected = p ? channelsOf(p) : [];
   const displayed = version
     ? p?.revisions.find((v) => v.id === version)
@@ -301,15 +309,22 @@ export default function App() {
   }, [id, JSON.stringify(selected), tab]);
   useEffect(() => {
     if (!busy) return;
-    const timer = setInterval(
-      () =>
-        api
-          .state()
-          .then(setState)
-          .catch(() => {}),
-      1200,
-    );
-    return () => clearInterval(timer);
+    let active = true;
+    const refresh = () => {
+      const owner = activeAction.current;
+      return api
+        .state()
+        .then((value: State | null) => {
+          if (active && activeAction.current === owner) setState(value);
+        })
+        .catch(() => {});
+    };
+    void refresh();
+    const timer = setInterval(refresh, 1200);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, [busy]);
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -322,6 +337,24 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty, panelDirty, settingsDirty]);
   async function act(name: string, payload?: any) {
+    if (name === "cancel") {
+      const operation = state?.operation;
+      if (!operation?.cancellable || operation.cancelRequested) return null;
+      try {
+        const owner = activeAction.current;
+        await api.cancel({ operationId: operation.id });
+        const refreshed = await api.state();
+        if (activeAction.current === owner || !activeAction.current)
+          setState(refreshed);
+        return true;
+      } catch (error) {
+        setNotice((error as Error).message);
+        return null;
+      }
+    }
+    if (activeAction.current) return null;
+    const actionId = Symbol(name);
+    activeAction.current = actionId;
     setWorking(name);
     setNotice("");
     try {
@@ -332,7 +365,12 @@ export default function App() {
           setId(result.projects[0]?.id || "");
           setScreen("studio");
         }
-      } else if (result === true) setNotice("Operação concluída.");
+      } else {
+        // Proposals and boolean results do not carry a final workspace snapshot.
+        // Refresh before resolving so the editor never retains a completed operation.
+        setState(await api.state());
+        if (result === true) setNotice("Operação concluída.");
+      }
       if (name.endsWith("Test")) setNotice("Conexão verificada com sucesso.");
       return result;
     } catch (e) {
@@ -348,7 +386,10 @@ export default function App() {
         .catch(() => {});
       return null;
     } finally {
-      setWorking("");
+      if (activeAction.current === actionId) {
+        activeAction.current = null;
+        setWorking("");
+      }
     }
   }
   function leave(action: () => void) {
@@ -448,16 +489,17 @@ export default function App() {
     else change({ ...draft, [proposal.target]: proposal.value });
     setProposal(null);
   }
-  const reviewChannels = selected
-    .flatMap((channel) =>
-      channel === "instagram" ? ["instagram"] : ["blogger", "wordpress"],
-    )
-    .filter(
-      (channel) =>
-        channel === "instagram" ||
-        (channel === "blogger" && !!state?.settings.bloggerId) ||
-        (channel === "wordpress" && !!state?.settings.wordpressUrl),
-    );
+  const operation = state?.operation;
+  const operationNames: Record<string, string> = {
+    run: "Gerando conteúdo",
+    chat: "Respondendo à conversa",
+    rewrite: "Preparando reescrita",
+    publish: "Enviando publicação",
+    reconcile: "Verificando publicação",
+    instagramConnect: "Conectando Instagram",
+    wordpressConnect: "Conectando WordPress",
+    bloggerConnect: "Conectando Blogger",
+  };
   return (
     <div className="app desktop-studio">
       <aside className={"sidebar " + (nav ? "shown" : "")}>
@@ -561,6 +603,31 @@ export default function App() {
                 : "Escrita manual disponível"}
           </span>
         </header>
+        {busy && (
+          <div
+            className="notice operation-status"
+            role="status"
+            aria-live="polite"
+          >
+            <span>
+              {operation?.cancelRequested
+                ? "Cancelando operação…"
+                : operationNames[operation?.name || working] ||
+                  "Operação em andamento…"}
+              {operation?.projectId &&
+                ` · ${state?.projects.find((project) => project.id === operation.projectId)?.title || "Pauta"}`}
+            </span>
+            {operation?.cancellable && (
+              <button
+                data-testid="cancel-operation"
+                disabled={operation.cancelRequested}
+                onClick={() => act("cancel")}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+        )}
         {notice && (
           <div className="notice" role="alert">
             <span>{notice}</span>
@@ -634,9 +701,7 @@ export default function App() {
                 </button>
               </div>
               <div className="actions">
-                {busy && working !== "rewrite" ? (
-                  <button onClick={() => api.cancel()}>Cancelar</button>
-                ) : (
+                {!busy && (
                   <>
                     <select
                       aria-label="Canal a gerar"
@@ -711,7 +776,7 @@ export default function App() {
                       </button>
                     ))}
                 </div>
-                {["blog", "instagram"].includes(tab) && (
+                {["blog", "instagram", "sources"].includes(tab) && (
                   <div className="editor-tools">
                     <span role="status">
                       {dirty
@@ -815,49 +880,14 @@ export default function App() {
                   />
                 )}
                 {tab === "sources" && (
-                  <div className="content-pad">
-                    <h2>Fontes da pauta</h2>
-                    <p className="muted">
-                      {p.sources.length
-                        ? "As indicações distinguem resumo, trechos e metadados."
-                        : "Nenhuma pesquisa foi realizada. A escrita manual pode começar sem fontes externas."}
-                    </p>
-                    {session?.artifacts?.searches?.map((s, i) => (
-                      <p key={i} className="search-record">
-                        <strong>
-                          {s.provider === "pubmed" ? "PubMed" : "Web aberta"}
-                        </strong>{" "}
-                        · {s.query} · {s.count} fontes
-                      </p>
-                    ))}
-                    {p.sources.map((s, i) => (
-                      <article className="source" key={s.id || s.pmid || i}>
-                        <span className="tag">
-                          {s.provider === "web"
-                            ? "Web aberta"
-                            : s.pmid
-                              ? "PubMed"
-                              : "Fonte"}{" "}
-                          ·{" "}
-                          {s.access === "abstract"
-                            ? "Resumo consultado"
-                            : s.access === "excerpt"
-                              ? "Trechos consultados"
-                              : s.access === "demo"
-                                ? "Demonstração antiga"
-                                : "Metadados"}
-                          {s.pmid && ` · PMID ${s.pmid}`}
-                        </span>
-                        <h3>{s.title}</h3>
-                        <p>{s.abstract}</p>
-                        {s.url && (
-                          <a href={s.url} target="_blank" rel="noreferrer">
-                            Abrir fonte
-                          </a>
-                        )}
-                      </article>
-                    ))}
-                  </div>
+                  <RevisionSources
+                    project={p}
+                    revision={
+                      version
+                        ? p.revisions.find((item) => item.id === version)
+                        : r
+                    }
+                  />
                 )}
                 {tab === "chat" && (
                   <div className="chat">
@@ -875,6 +905,16 @@ export default function App() {
                                 : m.agent || "Assistente"}
                             </strong>
                             <pre className="prose">{m.content}</pre>
+                            {["cancelled", "failed"].includes(
+                              m.status || "",
+                            ) && (
+                              <small>
+                                {m.status === "cancelled"
+                                  ? "Resposta cancelada"
+                                  : "Resposta não concluída"}{" "}
+                                · Sua mensagem foi preservada.
+                              </small>
+                            )}
                           </article>
                         ))}
                       {!p.messages.length && (
@@ -887,7 +927,26 @@ export default function App() {
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
-                        if (await act("chat", { id, message })) setMessage("");
+                        if (
+                          !chatRequest.current ||
+                          chatRequest.current.projectId !== id ||
+                          chatRequest.current.message !== message
+                        )
+                          chatRequest.current = {
+                            id: crypto.randomUUID(),
+                            projectId: id,
+                            message,
+                          };
+                        if (
+                          await act("chat", {
+                            id,
+                            message,
+                            requestId: chatRequest.current.id,
+                          })
+                        ) {
+                          setMessage("");
+                          chatRequest.current = null;
+                        }
                       }}
                     >
                       <textarea
@@ -909,6 +968,10 @@ export default function App() {
                 {tab === "review" && (
                   <div className="content-pad review-content">
                     <h2>Revisar e publicar</h2>
+                    <p className="small muted">
+                      Prévia da revisão atual salva
+                      {r ? ` (${p.revisions.length})` : ""}.
+                    </p>
                     {dirty && (
                       <p role="alert" className="inline-note">
                         Salve as alterações antes de aprovar. Abaixo está a
@@ -940,18 +1003,33 @@ export default function App() {
                             <p className="caption-preview">{r.caption}</p>
                           </section>
                         )}
-                        <details className="review-feedback">
-                          <summary>Observações da revisão com IA</summary>
-                          <pre className="prose">
-                            {p.messages
-                              .filter(
-                                (m) =>
-                                  m.agent === "reviewer" &&
-                                  m.role === "assistant",
-                              )
-                              .at(-1)?.content ||
-                              "Este conteúdo pode ser revisado e aprovado manualmente."}
-                          </pre>
+                        <details
+                          className="review-feedback"
+                          data-review-status={
+                            p.reviewFeedback?.status || "none"
+                          }
+                        >
+                          <summary>
+                            {p.reviewFeedback?.status === "current"
+                              ? "Revisão com IA desta versão"
+                              : p.reviewFeedback?.status === "stale"
+                                ? "Revisão anterior com IA — desatualizada"
+                                : p.reviewFeedback?.status === "legacy"
+                                  ? "Revisão antiga — versão não identificada"
+                                  : "Esta versão ainda não foi revisada pela IA"}
+                          </summary>
+                          <p className="small muted">
+                            {p.reviewFeedback?.status === "current"
+                              ? "Avaliação vinculada a esta revisão. Canais conferidos: " +
+                                p.reviewFeedback.channels?.join(" e ") +
+                                "."
+                              : "As observações antigas não validam o conteúdo atual. A revisão e a aprovação manual continuam disponíveis."}
+                          </p>
+                          {p.reviewFeedback?.content && (
+                            <pre className="prose">
+                              {p.reviewFeedback.content}
+                            </pre>
+                          )}
                         </details>
                       </>
                     ) : (
@@ -959,92 +1037,17 @@ export default function App() {
                         Escreva e salve uma revisão para conferir os materiais.
                       </p>
                     )}
-                    <div className="publish-destinations">
-                      {[...reviewChannels, "export"].map((channel) => {
-                        const name =
-                          channel === "blogger"
-                            ? "Blogger"
-                            : channel === "wordpress"
-                              ? "WordPress"
-                              : channel === "instagram"
-                                ? "Instagram"
-                                : "Exportação local";
-                        const destination =
-                          channel === "blogger"
-                            ? state?.settings.bloggerUrl
-                            : channel === "wordpress"
-                              ? state?.settings.wordpressUrl
-                              : channel === "instagram"
-                                ? state?.settings.instagramUsername ||
-                                  "Conecte uma conta profissional"
-                                : "Materiais dos canais selecionados";
-                        const configured =
-                          channel !== "instagram" ||
-                          !!state?.settings.instagramAccount;
-                        const awaitingCards =
-                          !!window.studio &&
-                          (channel === "instagram" ||
-                            (channel === "export" &&
-                              selected.includes("instagram"))) &&
-                          renderedRevision !== r?.id;
-                        return (
-                          <div className="approval-row" key={channel}>
-                            <div>
-                              <h3>{name}</h3>
-                              <p>{destination}</p>
-                              <span role="status">
-                                {p.publications[channel]
-                                  ? labels[p.publications[channel].status] ||
-                                    p.publications[channel].status
-                                  : p.approval?.[channel]
-                                    ? "Revisão aprovada"
-                                    : "Aguardando aprovação"}
-                              </span>
-                            </div>
-                            <button
-                              disabled={
-                                busy ||
-                                dirty ||
-                                !r ||
-                                !configured ||
-                                awaitingCards ||
-                                (channel !== "export" && !!r.demo)
-                              }
-                              onClick={() => act("approve", { id, channel })}
-                            >
-                              {p.approval?.[channel]
-                                ? "Aprovar novamente"
-                                : "Aprovar revisão"}
-                            </button>
-                            <button
-                              className="primary"
-                              disabled={
-                                busy ||
-                                dirty ||
-                                !r ||
-                                !configured ||
-                                awaitingCards ||
-                                !p.approval?.[channel] ||
-                                (channel !== "export" && !!r.demo) ||
-                                ["sending", "uncertain"].includes(
-                                  p.publications[channel]?.status,
-                                )
-                              }
-                              onClick={() =>
-                                act(
-                                  channel === "export" ? "export" : "publish",
-                                  { id, channel, urls: [] },
-                                )
-                              }
-                            >
-                              {channel === "export"
-                                ? "Exportar"
-                                : `Publicar no ${name}`}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {state && (
+                      <PublishDestinations
+                        project={p}
+                        state={state}
+                        busy={busy}
+                        dirty={dirty}
+                        renderedRevision={renderedRevision}
+                        act={act}
+                        openSettings={() => leave(() => setScreen("settings"))}
+                      />
+                    )}
                     {selected.includes("blog") &&
                       !state?.settings.bloggerId &&
                       !state?.settings.wordpressUrl && (

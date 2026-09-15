@@ -14,3 +14,5 @@
 `npm test` inclui `p0-state.test.cjs` e `p0-flow.test.cjs`. `npm run test:editorial-desktop` executa também `p0-desktop.cjs`, com Electron e IPC reais, workspaces descartáveis e respostas externas controladas.
 
 Nenhum teste publica conteúdo em contas reais nem consome chamadas pagas. O sucesso desses testes valida os estados, a integração local e os contratos simulados; não substitui uma verificação ao vivo dos provedores.
+
+A recuperação inclui conferência manual explícita quando o usuário verifica o destino e não encontra o envio. Ela preserva a tentativa no histórico, distingue a declaração do usuário da verificação da API e não publica conteúdo. As etapas de verificação das conexões também recebem o sinal de cancelamento, com limpeza remota limitada a três segundos.

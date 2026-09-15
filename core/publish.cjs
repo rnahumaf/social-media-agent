@@ -311,8 +311,15 @@ async function approvedImages(w, p, r) {
     r.style,
   );
   const hashes = images.map(require("./assets.cjs").hash);
-  if (JSON.stringify(hashes) !== JSON.stringify(p.approvalMedia))
+  if (JSON.stringify(hashes) !== JSON.stringify(p.approvalMedia)) {
+    // Re-enable approval after a renderer/font change instead of leaving a dead end.
+    if (p.approval) {
+      delete p.approval.instagram;
+      delete p.approval.export;
+    }
+    w.save();
     throw Error("A renderização mudou. Confira os cards e aprove novamente.");
+  }
   return images;
 }
 module.exports = {

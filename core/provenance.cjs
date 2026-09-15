@@ -6,6 +6,7 @@ function reviewFingerprint(project, revision, reviewedChannels) {
         revisionId: revision?.id,
         title: project.title,
         brief: project.brief,
+        decisions: project.decisions,
         channels: [...(project.channels || ["blog", "instagram"])].sort(),
         reviewedChannels: [...reviewedChannels].sort(),
         article: reviewedChannels.includes("blog")

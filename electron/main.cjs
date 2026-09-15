@@ -34,6 +34,7 @@ const instagramAuth = require("../core/instagram-auth.cjs");
 const authService =
   process.env.STUDIO_AUTH_ORIGIN || require("../core/auth-config.json").origin;
 const blogger = require("../core/blogger.cjs");
+let closingApproved = false;
 const actions = {
   bloggerConnect: async () => {
     if (!w.secrets) throw Error("Desbloqueie o cofre antes de conectar.");
@@ -184,6 +185,24 @@ const actions = {
     w.save();
     return w.snapshot();
   },
+  previewCards: ({ cards, style }) =>
+    require("../core/render.cjs").previewCards(w.dir, cards, style),
+  draft: (payload) => {
+    const active = operations.snapshot();
+    if (
+      active?.projectId === payload.id &&
+      !["rewrite", "chat"].includes(active.name)
+    )
+      throw Error(
+        "O conteúdo está em uso. O rascunho será salvo quando a operação terminar.",
+      );
+    return w.saveDraft(payload);
+  },
+  finishClose: () => {
+    closingApproved = true;
+    setImmediate(() => win.close());
+    return true;
+  },
   render: async ({ cards, style }) => {
     if (!Array.isArray(cards) || cards.length > 10)
       throw Error("Cards inválidos.");
@@ -279,9 +298,9 @@ const actions = {
     w.save();
     return w.snapshot();
   },
-  create: ({ title, brief, query, channels, research, manual }) => {
+  create: ({ title, brief, query, channels, research, manual, decisions }) => {
     if (!testMode) editorial.channelsSchema.parse(channels);
-    w.create(title, brief, query, { channels, research, manual });
+    w.create(title, brief, query, { channels, research, manual, decisions });
     return w.snapshot();
   },
   update: ({ id, ...fields }) => {
@@ -357,12 +376,19 @@ const actions = {
     return w.snapshot();
   },
   models: () => providers.models(),
-  run: async ({ id, resume = false, instruction = "", targets }) => {
+  run: async ({
+    id,
+    resume = false,
+    instruction = "",
+    targets,
+    mode = "research",
+  }) => {
     return run(w, id, {
       signal: operations.signal,
       resume: !!resume,
       instruction,
       targets,
+      mode,
     });
   },
   cancel: ({ operationId } = {}) => operations.cancel(operationId),
@@ -424,7 +450,17 @@ const actions = {
                 "\n\nContexto editorial deste projeto:\n" +
                 JSON.stringify({
                   brief: p.brief,
-                  revision: current(p),
+                  decisions: require("../core/context.cjs").decisions(p),
+                  revision: (() => {
+                    const saved = current(p);
+                    const draft = require("../core/drafts.cjs").readDraft(
+                      w,
+                      p.id,
+                    );
+                    return draft?.baseRevisionId === (saved?.id || null)
+                      ? { ...saved, ...draft.content, workingDraft: true }
+                      : saved;
+                  })(),
                   memory: editorial.knowledgeFor(
                     w.state,
                     editorial.channels(p).includes("blog")
@@ -432,10 +468,15 @@ const actions = {
                       : "social",
                   ),
                 }),
-              messages: p.messages
-                .filter((m) => !m.internal && !m.agent)
-                .slice(-20)
-                .map(({ role, content }) => ({ role, content })),
+              messages: [
+                ...require("../core/context.cjs").history(
+                  p.messages.filter((m) => m !== userMessage),
+                  "chat",
+                  message,
+                ),
+                { role: "user", content: message },
+              ],
+              maxTokens: 2000,
             });
       operations.signal?.throwIfAborted();
       userMessage.status = "completed";
@@ -463,9 +504,9 @@ const actions = {
     if (!result.canceled) w.backup(result.filePaths[0]);
     return !result.canceled;
   },
-  export: async ({ id }) => {
+  export: async ({ id, draft: exportDraft = false }) => {
     const p = w.project(id);
-    assertApproved(p, w.state.settings, "export");
+    if (!exportDraft) assertApproved(p, w.state.settings, "export");
     const result = await dialog.showOpenDialog(win, {
       title: "Exportar materiais para pasta vazia",
       properties: ["openDirectory", "createDirectory"],
@@ -473,10 +514,22 @@ const actions = {
     if (result.canceled) return false;
     const dir = result.filePaths[0];
     if (fs.readdirSync(dir).length) throw Error("Escolha uma pasta vazia.");
-    const r = current(p);
+    const savedDraft = exportDraft
+      ? require("../core/drafts.cjs").readDraft(w, id)
+      : null;
+    if (savedDraft && savedDraft.baseRevisionId !== (current(p)?.id || null))
+      throw Error(
+        "O rascunho pertence a outra revisão. Recupere-o pelo Histórico antes de exportar.",
+      );
+    const r = savedDraft
+      ? { ...current(p), ...savedDraft.content }
+      : current(p);
+    if (!r) throw Error("Escreva algum conteúdo antes de exportar.");
     const selected = editorial.channels(p);
     const rendered = selected.includes("instagram")
-      ? await publishers.approvedImages(w, p, r)
+      ? exportDraft
+        ? await renderJPEGs(w.dir, r.cards, r.style)
+        : await publishers.approvedImages(w, p, r)
       : [];
     if (selected.includes("blog"))
       fs.writeFileSync(path.join(dir, "artigo.md"), r.article);
@@ -499,7 +552,8 @@ const actions = {
               : {}),
           },
           sources: r.sources || p.sources,
-          approval: p.approval?.export,
+          draft: !!exportDraft,
+          approval: exportDraft ? undefined : p.approval?.export,
         },
         null,
         2,
@@ -510,11 +564,22 @@ const actions = {
     );
     return true;
   },
-  publish: async ({ id, channel, urls }) => {
+  publish: async ({
+    id,
+    channel,
+    urls,
+    approveCurrent = false,
+    baseRevisionId,
+  }) => {
     if (!["wordpress", "instagram", "blogger"].includes(channel))
       throw Error("Canal inválido.");
     const p = w.project(id);
-    assertApproved(p, w.state.settings, channel);
+    if (approveCurrent) {
+      if (!baseRevisionId || current(p)?.id !== baseRevisionId)
+        throw Error(
+          "A revisão mudou. Confira o conteúdo novamente antes de publicar.",
+        );
+    } else assertApproved(p, w.state.settings, channel);
     const confirmation = await dialog.showMessageBox(win, {
       type: "question",
       buttons: [
@@ -532,6 +597,7 @@ const actions = {
           : "Esta ação enviará o conteúdo à conta configurada.",
     });
     if (confirmation.response === 1) {
+      if (approveCurrent) await w.approve(id, channel);
       if (channel === "blogger") await blogger.publish(w, id, authService);
       else if (channel === "instagram")
         await publishers.instagram(w, id, urls, authService);
@@ -593,9 +659,20 @@ app.whenReady().then(() => {
         event.senderFrame !== win.webContents.mainFrame
       )
         throw Error("Origem inválida.");
-      if (!["open", "state", "cancel", "models"].includes(name) && !w)
+      if (
+        !["open", "state", "cancel", "models", "finishClose"].includes(name) &&
+        !w
+      )
         throw Error("Abra um workspace.");
-      const mutation = !["state", "cancel", "models", "render"].includes(name);
+      const mutation = ![
+        "state",
+        "cancel",
+        "models",
+        "render",
+        "previewCards",
+        "draft",
+        "finishClose",
+      ].includes(name);
       const operationId = mutation
         ? operations.begin(name, payload?.id, cancellable.has(name))
         : null;
@@ -609,6 +686,15 @@ app.whenReady().then(() => {
     });
   win.loadFile(path.join(__dirname, "../dist/index.html"));
   win.on("close", (event) => {
+    if (closingApproved && !operations.snapshot()) {
+      closingApproved = false;
+      return;
+    }
+    if (!operations.snapshot()) {
+      event.preventDefault();
+      win.webContents.send("studio:prepare-close");
+      return;
+    }
     if (operations.snapshot()) {
       event.preventDefault();
       dialog.showMessageBox(win, {

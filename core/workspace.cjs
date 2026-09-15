@@ -7,6 +7,12 @@ const editorial = require("./editorial-model.cjs");
 const { reviewFeedback } = require("./provenance.cjs");
 const roles = ["researcher", "writer", "social", "reviewer"];
 const text = z.string().max(200000);
+const decisionsSchema = z.object({
+  audience: z.string().max(600).default(""),
+  objective: z.string().max(600).default(""),
+  thesis: z.string().max(1500).default(""),
+  constraints: z.string().max(2000).default(""),
+});
 const revisionSchema = z.object({
   id: z.string(),
   article: text,
@@ -54,6 +60,7 @@ const stateSchema = z.object({
       id: z.string().uuid(),
       title: z.string().min(1).max(180),
       brief: text,
+      decisions: decisionsSchema.optional(),
       channels: editorial.channelsSchema.optional(),
       research: editorial.researchSchema.nullable().optional(),
       query: text,
@@ -411,10 +418,16 @@ class Workspace {
   snapshot() {
     return structuredClone({
       ...this.state,
-      projects: this.state.projects.map((p) => ({
-        ...p,
-        reviewFeedback: reviewFeedback(p),
-      })),
+      workspaceId: digest(path.resolve(this.dir)).slice(0, 16),
+      projects: this.state.projects.map((p) => {
+        const view = { ...p, reviewFeedback: reviewFeedback(p) };
+        try {
+          view.draft = require("./drafts.cjs").readDraft(this, p.id);
+        } catch (error) {
+          view.draftError = error.message;
+        }
+        return view;
+      }),
       unlocked: !!this.secrets,
       wordpressConfigured: !!(this.state.settings.wordpressProvider ===
       "wordpress.com"
@@ -529,6 +542,7 @@ class Workspace {
       id: crypto.randomUUID(),
       title,
       brief,
+      decisions: decisionsSchema.parse(options.decisions || {}),
       channels: editorial.channelsSchema.parse(
         options.channels || ["blog", "instagram"],
       ),
@@ -580,7 +594,11 @@ class Workspace {
     p.approval = null;
     p.status = "review";
     this.save();
+    require("./drafts.cjs").clearDraft(this, id);
     return r;
+  }
+  saveDraft(payload) {
+    return require("./drafts.cjs").saveDraft(this, payload);
   }
   update(id, fields) {
     const p = this.project(id);
@@ -588,6 +606,7 @@ class Workspace {
       .object({
         title: z.string().trim().min(1).max(180),
         brief: text,
+        decisions: decisionsSchema.optional(),
         query: text.optional(),
         channels: editorial.channelsSchema.optional(),
         research: editorial.researchSchema.nullable().optional(),

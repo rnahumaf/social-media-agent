@@ -9,55 +9,39 @@ import {
 } from "lucide-react";
 import type { API, Card, CardStyle, Revision, State } from "./types";
 import { defaultStyle } from "./editorial";
+import { useCardRender, type CardRender } from "./useCardRender";
 
 export function CardPreviews({
   revision,
   api,
-  selected,
-  onSelect,
-  focusOnly,
   onRendered,
 }: {
   revision: Revision;
   api: API;
+  onRendered?: (id: string) => void;
+}) {
+  const items = useCardRender(revision, api);
+  useEffect(() => {
+    const valid =
+      items.length === revision.cards.length &&
+      items.every((item) => item.image && !item.incomplete && !item.error);
+    onRendered?.(valid ? revision.id : "");
+  }, [items, revision.id, revision.cards.length, onRendered]);
+  return <CardPreviewList revision={revision} items={items} />;
+}
+function CardPreviewList({
+  revision,
+  items,
+  selected,
+  onSelect,
+  focusOnly,
+}: {
+  revision: Revision;
+  items: CardRender[];
   selected?: number;
   onSelect?: (n: number) => void;
   focusOnly?: number;
-  onRendered?: (revisionId: string) => void;
 }) {
-  const [rendered, setRendered] = useState<{ key: string; images: string[] }>({
-      key: "",
-      images: [],
-    }),
-    [error, setError] = useState("");
-  const serialized = JSON.stringify([revision.cards, revision.style]);
-  const images = rendered.key === serialized ? rendered.images : [];
-  useEffect(() => {
-    let active = true;
-    onRendered?.("");
-    const timer = setTimeout(() => {
-      if (!window.studio) return;
-      api
-        .render({ cards: revision.cards, style: revision.style })
-        .then((v: string[]) => {
-          if (active) {
-            setRendered({ key: serialized, images: v });
-            onRendered?.(revision.id);
-            setError("");
-          }
-        })
-        .catch((e: Error) => {
-          if (active) {
-            setRendered({ key: serialized, images: [] });
-            setError(e.message);
-          }
-        });
-    }, 180);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [serialized, revision.id, api, onRendered]);
   const style = revision.style || defaultStyle;
   const fontScale = style.fontScale ?? 1;
   return (
@@ -74,20 +58,30 @@ export function CardPreviews({
         {revision.cards.map((card, i) => {
           if (focusOnly !== undefined && focusOnly !== i) return null;
           const content = window.studio ? (
-            images[i] ? (
-              <img src={images[i]} alt={`Card ${i + 1}: ${card.title}`} />
+            items[i]?.image ? (
+              <img src={items[i].image} alt={`Card ${i + 1}: ${card.title}`} />
             ) : (
-              <div className="card-placeholder">Card {i + 1}</div>
+              <div
+                className={
+                  items[i]?.error ? "card-render-error" : "card-placeholder"
+                }
+                role={items[i]?.error ? "alert" : undefined}
+              >
+                Card {i + 1}
+                {items[i]?.error && <p>{items[i].error}</p>}
+              </div>
             )
           ) : (
             <div
               className="preview-card"
-              style={{
-                background: style.background,
-                color: style.textColor,
-                fontFamily: style.font === "serif" ? "Georgia" : "Arial",
-                "--card-font-scale": fontScale,
-              } as CSSProperties}
+              style={
+                {
+                  background: style.background,
+                  color: style.textColor,
+                  fontFamily: style.font === "serif" ? "Georgia" : "Arial",
+                  "--card-font-scale": fontScale,
+                } as CSSProperties
+              }
             >
               <small>{style.signature}</small>
               <h3 style={{ color: style.titleColor }}>{card.title}</h3>
@@ -113,11 +107,6 @@ export function CardPreviews({
           );
         })}
       </div>
-      {error && (
-        <p role="alert" className="inline-note">
-          {error}
-        </p>
-      )}
     </>
   );
 }
@@ -141,6 +130,7 @@ export default function CardEditor({
   rewrite: (target: "caption" | "card", index?: number) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const items = useCardRender(revision, api);
   useEffect(
     () => setIndex((n) => Math.min(n, Math.max(0, revision.cards.length - 1))),
     [revision.cards.length],
@@ -181,16 +171,20 @@ export default function CardEditor({
           Adicionar card
         </button>
       </div>
-      <CardPreviews
+      <CardPreviewList
         revision={revision}
-        api={api}
+        items={items}
         selected={index}
         onSelect={setIndex}
       />
       {card ? (
         <div className="card-workspace">
           <div className="active-card-preview">
-            <CardPreviews revision={revision} api={api} focusOnly={index} />
+            <CardPreviewList
+              revision={revision}
+              items={items}
+              focusOnly={index}
+            />
           </div>
           <div className="card-fields">
             <div className="split">
@@ -330,99 +324,102 @@ export default function CardEditor({
               </fieldset>
             )}
           </div>
-          <fieldset disabled={readOnly} className="style-editor">
-            <legend>Estilo do carrossel</legend>
-            <label>
-              Modelo
-              <select
-                value={style.layout}
-                onChange={(e) =>
-                  updateStyle({
-                    layout: e.target.value as CardStyle["layout"],
+          <details className="appearance-panel">
+            <summary>Aparência</summary>
+            <fieldset disabled={readOnly} className="style-editor">
+              <legend>Estilo do carrossel</legend>
+              <label>
+                Modelo
+                <select
+                  value={style.layout}
+                  onChange={(e) =>
+                    updateStyle({
+                      layout: e.target.value as CardStyle["layout"],
+                    })
+                  }
+                >
+                  <option value="text">Texto</option>
+                  <option value="split">Imagem com texto</option>
+                  <option value="background">Imagem de fundo</option>
+                </select>
+              </label>
+              <div className="color-grid">
+                {[
+                  ["background", "Fundo"],
+                  ["titleColor", "Título"],
+                  ["textColor", "Texto"],
+                  ["accent", "Destaque"],
+                ].map(([key, label]) => (
+                  <label key={key}>
+                    {label}
+                    <input
+                      aria-label={`Cor de ${label.toLowerCase()}`}
+                      type="color"
+                      value={style[key as "background"]}
+                      onChange={(e) => updateStyle({ [key]: e.target.value })}
+                    />
+                  </label>
+                ))}
+              </div>
+              <label>
+                Tipografia
+                <select
+                  value={style.font}
+                  onChange={(e) =>
+                    updateStyle({ font: e.target.value as CardStyle["font"] })
+                  }
+                >
+                  <option value="sans">Sem serifa</option>
+                  <option value="serif">Com serifa</option>
+                </select>
+              </label>
+              <label className="font-size-control">
+                <span>
+                  Tamanho da fonte
+                  <output>{Math.round(fontScale * 100)}%</output>
+                </span>
+                <input
+                  type="range"
+                  aria-label="Tamanho da fonte"
+                  min="0.85"
+                  max="1.15"
+                  step="0.05"
+                  value={fontScale}
+                  onChange={(e) =>
+                    updateStyle({ fontScale: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Assinatura
+                <input
+                  maxLength={60}
+                  value={style.signature}
+                  onChange={(e) => updateStyle({ signature: e.target.value })}
+                />
+              </label>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  act("settings", {
+                    settings: { ...state.settings, cardStyle: style },
                   })
                 }
               >
-                <option value="text">Texto</option>
-                <option value="split">Imagem com texto</option>
-                <option value="background">Imagem de fundo</option>
-              </select>
-            </label>
-            <div className="color-grid">
-              {[
-                ["background", "Fundo"],
-                ["titleColor", "Título"],
-                ["textColor", "Texto"],
-                ["accent", "Destaque"],
-              ].map(([key, label]) => (
-                <label key={key}>
-                  {label}
-                  <input
-                    aria-label={`Cor de ${label.toLowerCase()}`}
-                    type="color"
-                    value={style[key as "background"]}
-                    onChange={(e) => updateStyle({ [key]: e.target.value })}
-                  />
-                </label>
-              ))}
-            </div>
-            <label>
-              Tipografia
-              <select
-                value={style.font}
-                onChange={(e) =>
-                  updateStyle({ font: e.target.value as CardStyle["font"] })
+                Salvar como meu padrão
+              </button>
+              <button
+                onClick={() =>
+                  onChange({
+                    ...revision,
+                    style: state.settings.cardStyle || defaultStyle,
+                  })
                 }
               >
-                <option value="sans">Sem serifa</option>
-                <option value="serif">Com serifa</option>
-              </select>
-            </label>
-            <label className="font-size-control">
-              <span>
-                Tamanho da fonte
-                <output>{Math.round(fontScale * 100)}%</output>
-              </span>
-              <input
-                type="range"
-                aria-label="Tamanho da fonte"
-                min="0.85"
-                max="1.15"
-                step="0.05"
-                value={fontScale}
-                onChange={(e) =>
-                  updateStyle({ fontScale: Number(e.target.value) })
-                }
-              />
-            </label>
-            <label>
-              Assinatura
-              <input
-                maxLength={60}
-                value={style.signature}
-                onChange={(e) => updateStyle({ signature: e.target.value })}
-              />
-            </label>
-            <button
-              disabled={busy}
-              onClick={() =>
-                act("settings", {
-                  settings: { ...state.settings, cardStyle: style },
-                })
-              }
-            >
-              Salvar como meu padrão
-            </button>
-            <button
-              onClick={() =>
-                onChange({
-                  ...revision,
-                  style: state.settings.cardStyle || defaultStyle,
-                })
-              }
-            >
-              Usar meu padrão
-            </button>
-          </fieldset>
+                Usar meu padrão
+              </button>
+            </fieldset>
+          </details>
         </div>
       ) : (
         <p className="inline-note">

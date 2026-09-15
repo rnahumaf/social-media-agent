@@ -72,8 +72,11 @@ async function response(url, options = {}, type = "json") {
 async function request(url, options = {}) {
   return response(url, options, "json");
 }
+const modelWindows = new Map();
 async function models() {
   const data = await request("https://openrouter.ai/api/v1/models");
+  for (const m of data.data)
+    if (m.context_length) modelWindows.set(m.id, m.context_length);
   return data.data
     .filter(
       (m) => m.architecture?.output_modalities?.includes("text") !== false,
@@ -93,9 +96,17 @@ async function complete({
   signal,
   responseFormat,
   webSearch = false,
+  maxTokens = 5000,
+  allowPartial = false,
 }) {
   if (!key) throw Error("A chave OpenRouter não foi informada.");
   if (!model) throw Error("Nenhum modelo foi escolhido para este agente.");
+  const contextUsage = require("./context.cjs").budget(
+    system,
+    messages,
+    maxTokens,
+    modelWindows.get(model) || 32768,
+  );
   const data = await request("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -105,7 +116,7 @@ async function complete({
     body: JSON.stringify({
       model,
       messages: [{ role: "system", content: system }, ...messages],
-      max_tokens: 5000,
+      max_tokens: maxTokens,
       ...(webSearch
         ? {
             tools: [
@@ -135,7 +146,7 @@ async function complete({
     signal,
   });
   const choice = data.choices?.[0];
-  if (choice?.finish_reason === "length")
+  if (choice?.finish_reason === "length" && !allowPartial)
     throw Error(
       "O modelo consumiu o limite antes de concluir a resposta. Tente novamente; o trabalho concluído foi preservado.",
     );
@@ -147,8 +158,11 @@ async function complete({
         )
         .map((part) => part.text)
         .join("")
-    : raw;
-  if (typeof content !== "string" || !content.trim())
+    : (raw ?? (allowPartial && choice?.finish_reason === "length" ? "" : raw));
+  if (
+    (typeof content !== "string" || !content.trim()) &&
+    !(allowPartial && choice?.finish_reason === "length")
+  )
     throw Error(
       "O modelo concluiu a chamada sem texto final. Tente novamente; o trabalho concluído foi preservado.",
     );
@@ -157,6 +171,8 @@ async function complete({
     model: data.model,
     usage: data.usage || {},
     annotations: choice.message.annotations || [],
+    finishReason: choice.finish_reason,
+    contextUsage,
   };
 }
 async function pubmed(query, signal) {

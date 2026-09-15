@@ -49,8 +49,10 @@ export const preview: API = {
     channels = ["blog", "instagram"],
     research = null,
     manual = false,
+    decisions,
   }) => {
     state.projects.unshift({
+      decisions,
       id: crypto.randomUUID(),
       title,
       brief,
@@ -185,6 +187,14 @@ export const preview: API = {
     p.status = "review";
     return save();
   },
+  draft: async ({ id, content, baseRevisionId }) => {
+    const p = state.projects.find((p) => p.id === id)!;
+    if ((p.revisions.at(-1)?.id || null) !== baseRevisionId)
+      throw Error("A revisão mudou.");
+    p.draft = { content, baseRevisionId, updatedAt: new Date().toISOString() };
+    save();
+    return structuredClone(p.draft);
+  },
   edit: async ({ id, content }) => {
     const p = state.projects.find((p) => p.id === id)!;
     p.revisions.push({
@@ -193,6 +203,7 @@ export const preview: API = {
       createdAt: new Date().toISOString(),
     });
     p.approval = null;
+    delete p.draft;
     return save();
   },
   approve: async ({ id, channel }) => {

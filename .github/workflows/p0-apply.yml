@@ -1,0 +1,42 @@
+name: Apply and validate P0 branch
+on:
+  push:
+    branches: [fix/p0-editorial-flow]
+    paths: [scripts/apply-p0.cjs, .github/workflows/p0-apply.yml]
+permissions:
+  contents: write
+jobs:
+  p0:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-editorial-flow
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply exact source transformations
+        run: node scripts/apply-p0.cjs
+      - name: Format touched source
+        run: npx prettier --write core/operations.cjs core/provenance.cjs core/publication-errors.cjs core/publication-view.mjs core/publication-view.d.mts core/reconcile.cjs core/workspace.cjs core/pipeline.cjs core/providers.cjs core/rewrite.cjs core/publish.cjs core/blogger.cjs electron/main.cjs src/types.ts src/Studio.tsx src/PublishDestinations.tsx src/RevisionSources.tsx src/style.css tests/p0-state.test.cjs tests/p0-flow.test.cjs tests/p0-desktop.cjs docs/p0-validation.md
+      - run: npm test
+      - run: npm run build
+      - run: npx install-electron
+      - run: npm run test:desktop
+      - run: npm run test:editorial-desktop
+      - name: Commit only tested source changes to the P0 branch
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core electron src tests docs package.json README.md
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git commit -m "fix: complete P0 publication recovery, cancellation and revision provenance"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin HEAD:fix/p0-editorial-flow
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git rev-parse HEAD

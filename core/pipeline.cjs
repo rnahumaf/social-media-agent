@@ -5,6 +5,7 @@ const { z } = require("zod");
 const socialOutput = require("./social-output.cjs");
 const { systemFor } = require("./editorial-prompts.cjs");
 const editorial = require("./editorial-model.cjs");
+const { reviewFingerprint } = require("./provenance.cjs");
 const isDemo = (w) => w.testMode && w.state.settings.demo;
 function generatedContent(w, p, selected, content) {
   const previous = current(p);
@@ -21,6 +22,13 @@ function generatedContent(w, p, selected, content) {
         ]),
       ).values(),
     ],
+    research: {
+      sessionId: p.sessions?.at(-1)?.id,
+      searches: [
+        ...(partial ? previous?.research?.searches || [] : []),
+        ...(p.sessions?.at(-1)?.artifacts?.searches || []),
+      ],
+    },
     origin: isDemo(w) ? "demo" : "ai",
     // Regenerar apenas um canal conserva a procedência dos materiais retidos.
     demo: !!isDemo(w) || (!!previous?.demo && partial),
@@ -581,6 +589,13 @@ async function generate(
       }
       p.messages.push({
         role: "assistant",
+        ...(role === "reviewer"
+          ? {
+              revisionId: current(p)?.id,
+              reviewedChannels: selected,
+              reviewFingerprint: reviewFingerprint(p, current(p), selected),
+            }
+          : {}),
         agent: role,
         content: result.content,
         at: now(),

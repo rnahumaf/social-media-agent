@@ -459,9 +459,6 @@ export function SettingsPanel({
                 ? "Reconectar Instagram"
                 : "Conectar Instagram"}
           </button>
-          {connecting && (
-            <button onClick={() => act("cancel")}>Cancelar conexão</button>
-          )}
           {state.settings.instagramAccount && (
             <>
               <button
@@ -572,9 +569,6 @@ export function SettingsPanel({
                 ? "Reconectar Blogger"
                 : "Conectar Blogger com Google"}
           </button>
-          {bloggerConnecting && (
-            <button onClick={() => act("cancel")}>Cancelar conexão</button>
-          )}
           {state.settings.bloggerId && (
             <button
               disabled={busy || !state.unlocked}
@@ -685,9 +679,6 @@ export function SettingsPanel({
                 ? "Reconectar WordPress.com"
                 : "Conectar WordPress.com"}
           </button>
-          {wpConnecting && (
-            <button onClick={() => act("cancel")}>Cancelar conexão</button>
-          )}
           {state.settings.wordpressSiteId && (
             <>
               <button

@@ -61,8 +61,11 @@ async function response(url, options = {}, type = "json") {
     });
     if (result.ok) return result[type]();
     const delay = retryDelay(result);
-    if (result.status !== 429 || attempt === attempts - 1 || delay > 5000)
-      throw externalError(url, result.status);
+    if (result.status !== 429 || attempt === attempts - 1 || delay > 5000) {
+      const error = externalError(url, result.status);
+      error.httpStatus = result.status;
+      throw error;
+    }
     await wait(delay, options.signal);
   }
 }

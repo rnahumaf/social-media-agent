@@ -19,11 +19,11 @@ function serviceURL(value) {
     throw Error("Serviço de conexão precisa de uma origem HTTPS.");
   return u.origin;
 }
-async function profile(token, version = "v23.0") {
+async function profile(token, version = "v23.0", signal) {
   if (!/^v\d+\.\d+$/.test(version)) throw Error("Versão da API inválida.");
   const data = await request(
     `https://graph.instagram.com/${version}/me?fields=user_id,username`,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: { Authorization: `Bearer ${token}` }, signal },
   );
   if (
     !/^\d+$/.test(String(data.user_id)) ||
@@ -129,7 +129,9 @@ async function connect({
             result.token,
             result.siteId,
             result.siteUrl,
+            signal,
           );
+          signal?.throwIfAborted();
           return { ...site, token: result.token };
         }
         if (
@@ -138,7 +140,8 @@ async function connect({
           result.expiresAt <= Date.now()
         )
           throw Error("Credencial inválida.");
-        const account = await profile(result.token);
+        const account = await profile(result.token, "v23.0", signal);
+        signal?.throwIfAborted();
         if (result.accountId && !/^\d+$/.test(String(result.accountId)))
           throw Error("O identificador retornado pelo serviço é inválido.");
         return {
@@ -170,6 +173,7 @@ async function connect({
     await request(base + "/sessions/" + session.id, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${verifier}` },
+      signal: AbortSignal.timeout(3000),
     }).catch(() => {});
   }
 }

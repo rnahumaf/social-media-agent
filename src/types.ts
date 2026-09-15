@@ -48,6 +48,10 @@ export type Revision = {
   demo?: boolean;
   origin?: "manual" | "ai" | "demo";
   sources?: Project["sources"];
+  research?: {
+    sessionId?: string;
+    searches: { provider: ResearchProvider; query: string; count: number }[];
+  };
 };
 export type RunEvent = {
   id: string;
@@ -115,7 +119,20 @@ export type Project = {
     agent?: string;
     internal?: boolean;
     at: string;
+    requestId?: string;
+    status?: string;
+    error?: string;
+    revisionId?: string;
+    reviewedChannels?: Channel[];
+    reviewFingerprint?: string;
   }[];
+  reviewFeedback?: {
+    status: "current" | "stale" | "legacy" | "none";
+    content?: string;
+    revisionId?: string;
+    channels?: Channel[];
+    at?: string;
+  };
   runs: {
     id: string;
     role: string;
@@ -133,7 +150,15 @@ export type Project = {
   approval: Record<string, string> | null;
   publications: Record<
     string,
-    { status: string; remoteId?: string; url?: string }
+    {
+      status: string;
+      remoteId?: string;
+      url?: string;
+      revision?: string;
+      title?: string;
+      destination?: string;
+      recoveryNote?: string;
+    }
   >;
 };
 export type State = {
@@ -142,7 +167,18 @@ export type State = {
   memory: string;
   knowledge?: Knowledge;
   editorialVersion?: 2;
+  operation?: {
+    id: string;
+    name: string;
+    projectId: string | null;
+    startedAt: string;
+    cancellable: boolean;
+    cancelRequested: boolean;
+  } | null;
   unlocked?: boolean;
+  wordpressConfigured?: boolean;
+  bloggerConfigured?: boolean;
+  instagramConfigured?: boolean;
   vaultRemembered?: boolean;
   vaultRememberError?: string;
   openrouterConfigured?: boolean;

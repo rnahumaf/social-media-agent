@@ -1,5 +1,6 @@
 const { assertApproved, current } = require("./workspace.cjs");
 const { request } = require("./providers.cjs");
+const { failureStatus } = require("./publication-errors.cjs");
 function httpsBase(value) {
   const url = new URL(value);
   if (
@@ -52,7 +53,11 @@ async function wordpress(w, id) {
     throw Error(
       "Resultado anterior incerto. Confira o WordPress antes de qualquer nova tentativa.",
     );
-  if (previous?.revision === revision.id && previous.status === "published")
+  if (
+    previous?.revision === revision.id &&
+    ["published", "reconciled"].includes(previous.status) &&
+    (!previous.title || previous.title === p.title)
+  )
     return previous;
   const url = httpsBase(s.wordpressUrl);
   if (previous?.destination && previous.destination !== url)
@@ -62,7 +67,14 @@ async function wordpress(w, id) {
   const access = wordpressAccess(w);
   const { renderBlog } = await import("./blog-html.mjs");
   const html = renderBlog(revision.article);
+  if (previous)
+    (p.publicationHistory ||= []).push({
+      channel: "wordpress",
+      ...structuredClone(previous),
+    });
   p.publications.wordpress = {
+    title: p.title,
+    url: previous?.url,
     status: "sending",
     revision: revision.id,
     remoteId: previous?.remoteId,
@@ -95,6 +107,7 @@ async function wordpress(w, id) {
     const remoteId = post.id || post.ID;
     if (!remoteId) throw Error("Resposta sem identificador remoto.");
     p.publications.wordpress = {
+      title: p.title,
       status: "published",
       revision: revision.id,
       remoteId,
@@ -105,10 +118,12 @@ async function wordpress(w, id) {
     w.save();
     return p.publications.wordpress;
   } catch (e) {
-    p.publications.wordpress.status = "uncertain";
+    p.publications.wordpress.status = failureStatus(e);
     w.save();
     throw Error(
-      "Resultado da publicação incerto. Verifique o WordPress; a repetição automática foi bloqueada.",
+      p.publications.wordpress.status === "failed"
+        ? "O WordPress recusou o envio. Confira a conexão antes de tentar novamente."
+        : "Resultado da publicação incerto. Use Verificar resultado no WordPress; nenhum envio será repetido automaticamente.",
     );
   }
 }
@@ -121,7 +136,8 @@ async function instagram(w, id, urls = [], service) {
     throw Error(
       "Material de demonstração não pode ser publicado. Gere uma nova revisão no modo conectado.",
     );
-  if (p.publications.instagram)
+  const previous = p.publications.instagram;
+  if (previous && previous.status !== "failed")
     throw Error(
       "Já existe uma tentativa para este projeto. Confira a conta; o aplicativo não repete publicações Instagram com resultado incerto.",
     );
@@ -194,7 +210,15 @@ async function instagram(w, id, urls = [], service) {
     Authorization: "Bearer " + w.secrets.instagram,
     "Content-Type": "application/json",
   };
+  if (previous)
+    (p.publicationHistory ||= []).push({
+      channel: "instagram",
+      ...structuredClone(previous),
+    });
   p.publications.instagram = {
+    attemptVersion: 2,
+    destination: s.instagramAccount,
+    title: p.title,
     status: "sending",
     revision: r.id,
     urls,
@@ -239,6 +263,8 @@ async function instagram(w, id, urls = [], service) {
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
     if (!ready) throw Error("Processamento ainda não concluído.");
+    p.publications.instagram.publishAttemptedAt = new Date().toISOString();
+    w.save();
     const result = await request(base + "/media_publish", {
       method: "POST",
       headers,
@@ -266,17 +292,40 @@ async function instagram(w, id, urls = [], service) {
     w.save();
     return p.publications.instagram;
   } catch (e) {
-    p.publications.instagram.status = "uncertain";
+    p.publications.instagram.status = failureStatus(
+      e,
+      !!p.publications.instagram.publishAttemptedAt,
+    );
     w.save();
     throw Error(
-      "Tentativa Instagram não confirmada. Verifique a conta e os contêineres; repetição bloqueada.",
+      p.publications.instagram.status === "failed"
+        ? "O envio não foi publicado. Corrija o erro e tente novamente quando estiver pronto."
+        : "Tentativa Instagram não confirmada. Use Verificar resultado; nenhum envio será repetido automaticamente.",
     );
   }
 }
 async function approvedImages(w, p, r) {
-  const images = await require('./render.cjs').renderJPEGs(w.dir, r.cards, r.style);
-  const hashes = images.map(require('./assets.cjs').hash);
-  if (JSON.stringify(hashes) !== JSON.stringify(p.approvalMedia)) throw Error('A renderização mudou. Confira os cards e aprove novamente.');
+  const images = await require("./render.cjs").renderJPEGs(
+    w.dir,
+    r.cards,
+    r.style,
+  );
+  const hashes = images.map(require("./assets.cjs").hash);
+  if (JSON.stringify(hashes) !== JSON.stringify(p.approvalMedia)) {
+    // Re-enable approval after a renderer/font change instead of leaving a dead end.
+    if (p.approval) {
+      delete p.approval.instagram;
+      delete p.approval.export;
+    }
+    w.save();
+    throw Error("A renderização mudou. Confira os cards e aprove novamente.");
+  }
   return images;
 }
-module.exports = { wordpressAccess, wordpress, instagram, httpsBase, approvedImages };
+module.exports = {
+  wordpressAccess,
+  wordpress,
+  instagram,
+  httpsBase,
+  approvedImages,
+};

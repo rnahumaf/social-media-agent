@@ -198,26 +198,22 @@ function Destination({ channel, ...props }: Props & { channel: string }) {
       ) : (
         view.mode !== "published" && (
           <>
-            {!p.approval?.[channel] && (
-              <button
-                disabled={!view.canApprove}
-                onClick={() => act("approve", { id: p.id, channel })}
-              >
-                Aprovar revisão
-              </button>
-            )}
             <button
               className="primary"
-              disabled={!view.canPublish}
+              disabled={!(view.canApprove || view.canPublish)}
               onClick={() =>
                 act(channel === "export" ? "export" : "publish", {
                   id: p.id,
                   channel,
                   urls: [],
+                  approveCurrent: true,
+                  baseRevisionId: r?.id,
                 })
               }
             >
-              {view.label}
+              {view.mode === "update"
+                ? "Aprovar e atualizar"
+                : "Aprovar e publicar"}
               {channel === "export" ? "" : ` no ${name}`}
             </button>
           </>
@@ -241,7 +237,7 @@ export default function PublishDestinations(props: Props) {
     );
   return (
     <div className="publish-destinations">
-      {[...channels, "export"].map((channel) => (
+      {channels.map((channel) => (
         <Destination
           key={`${project.id}-${channel}`}
           {...props}

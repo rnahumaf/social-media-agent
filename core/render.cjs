@@ -128,16 +128,56 @@ function svgCard(card, index, total, style, dir) {
   const titleY = s.layout === "split" && card.image ? 670 : 295;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350"><rect width="1080" height="1350" fill="${s.background}"/>${photo}<rect x="80" y="96" width="64" height="8" fill="${s.accent}"/><text x="80" y="164" font-family="${font}" font-size="24" fill="${s.textColor}">${escape(s.signature)}</text><g font-family="${font}" fill="${s.titleColor}" font-weight="bold" font-size="${layout.titleSize}">${title.map((line, i) => `<text x="80" y="${titleY + i * layout.titleLineHeight}">${escape(line)}</text>`).join("")}</g><g font-family="${font}" font-size="${layout.bodySize}" fill="${s.textColor}">${body.map((line, i) => `<text x="80" y="${layout.bodyY + i * layout.bodyLineHeight}">${escape(line)}</text>`).join("")}</g><line x1="80" x2="1000" y1="1220" y2="1220" stroke="${s.accent}"/><text x="80" y="1272" font-family="${font}" font-size="24" fill="${s.textColor}">${index + 1} / ${total}</text></svg>`;
 }
+// Cache the exact SVG, including validated image bytes and card position.
+// Validation happens before cache lookup, preserving P0 approval checks.
+const { createRenderCache, digest } = require("./render-cache.cjs");
+const renderCache = createRenderCache();
+async function renderCard(dir, card, index, total, style) {
+  const svg = svgCard(card, index, total, style, dir);
+  const key = digest(require("node:path").resolve(dir) + "\n" + svg);
+  return renderCache.get(key, () =>
+    require("sharp")(Buffer.from(svg)).jpeg({ quality: 95 }).toBuffer(),
+  );
+}
 async function renderJPEGs(dir, cards, style) {
   if (!Array.isArray(cards) || cards.length > 10)
     throw Error("Cards inválidos.");
-  const sharp = require("sharp");
   return Promise.all(
     cards.map((card, index) =>
-      sharp(Buffer.from(svgCard(card, index, cards.length, style, dir)))
-        .jpeg({ quality: 95 })
-        .toBuffer(),
+      renderCard(dir, card, index, cards.length, style),
     ),
   );
 }
-module.exports = { svgCard, wrap, cardLayout, renderJPEGs };
+async function previewCards(dir, cards, style) {
+  if (!Array.isArray(cards) || cards.length > 10)
+    throw Error("Cards inválidos.");
+  return Promise.all(
+    cards.map(async (card, index) => {
+      try {
+        const shown =
+          !card.title?.trim() && !card.body?.trim() && !card.image
+            ? {
+                ...card,
+                title: "Seu próximo card",
+                body: "Escreva o texto ou adicione uma imagem.",
+              }
+            : card;
+        const image = await renderCard(dir, shown, index, cards.length, style);
+        return {
+          image: "data:image/jpeg;base64," + image.toString("base64"),
+          ...(shown !== card ? { incomplete: true } : {}),
+        };
+      } catch (error) {
+        return { error: error.message };
+      }
+    }),
+  );
+}
+module.exports = {
+  svgCard,
+  wrap,
+  cardLayout,
+  renderJPEGs,
+  renderCard,
+  previewCards,
+};

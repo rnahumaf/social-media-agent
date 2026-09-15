@@ -73,6 +73,26 @@ app.whenReady().then(async () => {
     evaluate(
       `(() => { const buttons = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === ${JSON.stringify(text)}); if (buttons.length !== 1 || buttons[0].disabled) throw Error('Missing or disabled button: ' + ${JSON.stringify(text)}); buttons[0].click(); })()`,
     );
+  const closePanel = async () => {
+    await evaluate(
+      "document.querySelector('[aria-label=\"Fechar diálogo\"]')?.click()",
+    );
+    await dom("!document.querySelector('[role=dialog]')");
+  };
+  const panel = async (name) => {
+    await closePanel();
+    await evaluate("document.querySelector('.context-tools').open = true");
+    await click(name);
+    await dom("!!document.querySelector('[role=dialog]')");
+  };
+  const checkpoint = async () => {
+    await panel("Histórico");
+    await click("Criar revisão");
+    await dom(
+      "document.querySelector('.editor-tools [role=status]').textContent === 'Revisão salva'",
+    );
+    await closePanel();
+  };
   const fill = async (selector, value) =>
     evaluate(
       `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) throw Error('Missing field'); const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, ${JSON.stringify(value)}); el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); })()`,
@@ -195,7 +215,7 @@ app.whenReady().then(async () => {
       remember: false,
     });
     await reload();
-    await click("Revisar e publicar");
+    await click("Publicar");
     await dom("!!document.querySelector('[data-destination=wordpress] form')");
     assert.equal(
       await evaluate(
@@ -240,7 +260,7 @@ app.whenReady().then(async () => {
     await wait(() => !!releaseRecovery, "recovery fixture");
     releaseRecovery();
     await dom(
-      "[...document.querySelectorAll('[data-destination=wordpress] button')].some(b=>b.textContent.trim()==='Atualizar no WordPress')",
+      "[...document.querySelectorAll('[data-destination=wordpress] button')].some(b=>b.textContent.trim()==='Aprovar e atualizar no WordPress')",
     );
     assert.equal(postCalls, 0);
     let state = await call("state");
@@ -249,7 +269,7 @@ app.whenReady().then(async () => {
       state.projects[0].publications.wordpress.revision,
       state.projects[0].revisions.at(-1).id,
     );
-    await click("Fontes");
+    await panel("Fontes");
     await dom("!!document.querySelector('.pending-research')");
     assert.equal(
       await evaluate(
@@ -263,7 +283,7 @@ app.whenReady().then(async () => {
       ),
       "Pesquisa posterior",
     );
-    await click("Conversa");
+    await panel("Conversa");
     await fill('[aria-label="Mensagem"]', "Pedido cancelável");
     await evaluate("document.querySelector('.chat form').requestSubmit()");
     await dom(
@@ -306,6 +326,7 @@ app.whenReady().then(async () => {
       ).length,
       1,
     );
+    await closePanel();
     await click("Blog");
     await click("Reescrever artigo com IA");
     await click("Solicitar sugestão");
@@ -333,7 +354,7 @@ app.whenReady().then(async () => {
     state = await call("state");
     assert.equal(state.projects[0].runs.at(-1).status, "cancelled");
     assert.equal(llmCalls, 3);
-    await click("Salvar revisão");
+    await checkpoint();
     await dom(
       "document.querySelector('.editor-tools [role=status]').textContent === 'Revisão salva'",
     );
@@ -343,7 +364,7 @@ app.whenReady().then(async () => {
     await dom(
       "document.querySelector('.project-header h1')?.textContent === 'Conferência manual P0'",
     );
-    await click("Revisar e publicar");
+    await click("Publicar");
     await dom("!!document.querySelector('.manual-recovery')");
     assert.equal(
       await evaluate(

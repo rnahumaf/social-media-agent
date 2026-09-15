@@ -62,6 +62,7 @@ export type RunEvent = {
   detail?: string;
 };
 export type RunSession = {
+  mode?: "research" | "adapt";
   id: string;
   status: string;
   cursor: string;
@@ -72,6 +73,7 @@ export type RunSession = {
   instruction?: string;
   events: RunEvent[];
   artifacts?: {
+    partial?: { role: string; content: string; at: string };
     query?: string;
     searches?: {
       provider: ResearchProvider;
@@ -96,7 +98,20 @@ export type RunSession = {
   selectedProjectChannels?: Channel[];
   baseRevisionId?: string;
 };
+export type Decisions = {
+  audience: string;
+  objective: string;
+  thesis: string;
+  constraints: string;
+};
 export type Project = {
+  draftError?: string;
+  decisions?: Decisions;
+  draft?: {
+    baseRevisionId: string | null;
+    updatedAt: string;
+    content: Pick<Revision, "article" | "caption" | "cards" | "style">;
+  } | null;
   id: string;
   title: string;
   brief: string;
@@ -139,6 +154,11 @@ export type Project = {
     phase?: string;
     model: string;
     status: string;
+    contextUsage?: {
+      estimatedInputTokens: number;
+      inputBudget: number;
+      maxTokens: number;
+    };
     usage?: { total_tokens?: number; cost?: number };
     error?: string;
     sessionId?: string;
@@ -162,6 +182,7 @@ export type Project = {
   >;
 };
 export type State = {
+  workspaceId?: string;
   format: 1;
   name: string;
   memory: string;

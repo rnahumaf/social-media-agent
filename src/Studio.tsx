@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   BookOpen,
   FolderOpen,
@@ -6,14 +12,10 @@ import {
   Settings,
   FileText,
   Images,
-  Search,
-  MessageSquare,
-  CheckCheck,
   Archive,
   X,
   PanelLeft,
   Play,
-  Save,
   Send,
 } from "lucide-react";
 import type {
@@ -22,14 +24,16 @@ import type {
   Revision,
   Channel,
   ResearchProvider,
-  Knowledge,
+  Decisions,
   RewriteRequest,
   RewriteProposal,
   Card,
 } from "./types";
 import { preview } from "./preview";
-import { channelsOf, defaultStyle, knowledgeOf } from "./editorial";
-import { SettingsPanel, RunActivity } from "./panels";
+import { channelsOf, defaultStyle } from "./editorial";
+import { RunActivity } from "./panels";
+import SettingsView from "./SettingsView";
+import { createDraftWriter } from "../core/draft-writer.mjs";
 import BlogEditor, { BlogPreview } from "./BlogEditor";
 import CardEditor, { CardPreviews } from "./CardEditor";
 import PublishDestinations from "./PublishDestinations";
@@ -59,6 +63,24 @@ const emptyRevision = (s: State | null): Revision => ({
   style: s?.settings.cardStyle || defaultStyle,
 });
 
+const NoticeContext = React.createContext<{
+  message: string;
+  dismiss: () => void;
+} | null>(null);
+function Notice({
+  value,
+}: {
+  value: { message: string; dismiss: () => void } | null;
+}) {
+  return value?.message ? (
+    <div className="notice" role="alert">
+      <span>{value.message}</span>
+      <button aria-label="Fechar aviso" onClick={value.dismiss}>
+        <X size={16} />
+      </button>
+    </div>
+  ) : null;
+}
 function Modal({
   title,
   onClose,
@@ -69,6 +91,7 @@ function Modal({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const notice = React.useContext(NoticeContext);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     const focusable = () =>
@@ -76,6 +99,9 @@ function Modal({
         ref.current?.querySelectorAll<HTMLElement>(
           'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]',
         ) || [],
+      ).filter(
+        (el) =>
+          !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
       );
     focusable()[0]?.focus();
     const key = (e: KeyboardEvent) => {
@@ -116,6 +142,7 @@ function Modal({
             <X size={18} />
           </button>
         </div>
+        <Notice value={notice} />
         {children}
       </div>
     </div>
@@ -157,120 +184,50 @@ function ResearchChoices({
     </div>
   );
 }
-function KnowledgePanel({
-  state,
-  busy,
-  act,
-  onDirty,
-}: {
-  state: State;
-  busy: boolean;
-  act: (n: string, p?: any) => Promise<any>;
-  onDirty: (v: boolean) => void;
-}) {
-  const [value, setValue] = useState<Knowledge>(knowledgeOf(state));
-  const [saved, setSaved] = useState(false);
-  return (
-    <section className="knowledge-panel">
-      <h1>Conhecimento do autor</h1>
-      <p className="muted">
-        Estas preferências acompanham as pautas deste workspace. O briefing
-        define os ajustes de cada conteúdo.
-      </p>
-      {(
-        [
-          [
-            "general",
-            "Preferências gerais",
-            "Público, tom de voz, palavras a evitar e como apresentar argumentos.",
-          ],
-          [
-            "blog",
-            "Escrita para blog",
-            "Estrutura, profundidade e uso de títulos e referências.",
-          ],
-          [
-            "instagram",
-            "Escrita para Instagram",
-            "Ritmo dos cards, legendas e chamadas para ação.",
-          ],
-          [
-            "examples",
-            "Exemplos de escrita",
-            "Cole trechos que representem sua voz e explique o que deseja preservar.",
-          ],
-        ] as const
-      ).map(([key, label, placeholder]) => (
-        <label key={key}>
-          {label}
-          <textarea
-            value={value[key]}
-            disabled={busy}
-            placeholder={placeholder}
-            maxLength={
-              key === "general" ? 100000 : key === "examples" ? 40000 : 30000
-            }
-            onChange={(e) => {
-              setValue({ ...value, [key]: e.target.value });
-              setSaved(false);
-              onDirty(true);
-            }}
-          />
-        </label>
-      ))}
-      <div className="actions">
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={async () => {
-            if (await act("knowledge", { knowledge: value })) {
-              onDirty(false);
-              setSaved(true);
-            }
-          }}
-        >
-          Salvar conhecimento
-        </button>
-        {saved && <span role="status">Conhecimento salvo.</span>}
-      </div>
-    </section>
-  );
-}
-
+const contentKey = (r?: Revision | null) =>
+  JSON.stringify(r ? [r.article, r.caption, r.cards, r.style] : null);
+const emptyDecisions: Decisions = {
+  audience: "",
+  objective: "",
+  thesis: "",
+  constraints: "",
+};
 export default function App() {
   const [state, setState] = useState<State | null>(null),
-    [id, setId] = useState(""),
-    [screen, setScreen] = useState("studio"),
-    [tab, setTab] = useState("blog"),
-    [working, setWorking] = useState(""),
-    [notice, setNotice] = useState(""),
-    [nav, setNav] = useState(false),
+    [id, setId] = useState("");
+  const [screen, setScreen] = useState<"studio" | "settings">("studio");
+  const [tab, setTab] = useState<Channel>("blog");
+  const [panel, setPanel] = useState<
+    "sources" | "chat" | "history" | "review" | null
+  >(null);
+  const [working, setWorking] = useState(""),
+    [notice, setNotice] = useState("");
+  const [nav, setNav] = useState(false),
     [creating, setCreating] = useState(false),
-    [projectForm, setProjectForm] = useState(false),
-    [draft, setDraft] = useState<Revision | null>(null),
-    [dirty, setDirty] = useState(false),
-    [panelDirty, setPanelDirty] = useState(false),
-    [settingsDirty, setSettingsDirty] = useState(false),
-    [renderedRevision, setRenderedRevision] = useState(""),
-    [version, setVersion] = useState(""),
-    [message, setMessage] = useState(""),
-    [steer, setSteer] = useState(""),
-    [scope, setScope] = useState("all");
+    [projectForm, setProjectForm] = useState(false);
+  const [draft, setDraft] = useState<Revision | null>(null),
+    [dirty, setDirty] = useState(false);
+  const [settingsDirty, setSettingsDirty] = useState(false),
+    [version, setVersion] = useState("");
+  const [renderedRevision, setRenderedRevision] = useState("");
+  const [message, setMessage] = useState(""),
+    [steer, setSteer] = useState("");
+  const [generating, setGenerating] = useState(false);
   const [rewriteTarget, setRewriteTarget] = useState<{
-      target: RewriteRequest["target"];
-      index?: number;
-    } | null>(null),
-    [rewriteInstruction, setRewriteInstruction] = useState(
-      "Melhore a clareza e adapte ao canal, preservando o significado.",
-    ),
-    [proposal, setProposal] = useState<
-      | (RewriteProposal & {
-          original: string;
-          projectId: string;
-          index?: number;
-        })
-      | null
-    >(null);
+    target: RewriteRequest["target"];
+    index?: number;
+  } | null>(null);
+  const [rewriteInstruction, setRewriteInstruction] = useState(
+    "Melhore a clareza, preservando o significado.",
+  );
+  const [proposal, setProposal] = useState<
+    | (RewriteProposal & {
+        original: string;
+        projectId: string;
+        index?: number;
+      })
+    | null
+  >(null);
   const activeAction = useRef<symbol | null>(null);
   const chatRequest = useRef<{
     id: string;
@@ -279,13 +236,41 @@ export default function App() {
   } | null>(null);
   const p = state?.projects.find((p) => p.id === id),
     r = p?.revisions.at(-1),
-    session = p?.sessions?.at(-1),
-    busy = !!working || !!state?.operation;
-  const selected = p ? channelsOf(p) : [];
+    session = p?.sessions?.at(-1);
+  const operation = state?.operation,
+    busy = !!working || !!operation;
+  const selected = (p ? channelsOf(p) : []) as Channel[];
   const displayed = version
     ? p?.revisions.find((v) => v.id === version)
     : draft;
-  const readOnly = !!version || (busy && working !== "rewrite");
+  const readOnly =
+    !!version || (busy && (operation?.name || working) !== "rewrite");
+  const current = useRef({ p, r, draft, dirty, settingsDirty });
+  current.current = { p, r, draft, dirty, settingsDirty };
+  const autosave = useMemo(
+    () =>
+      createDraftWriter(async (payload) => {
+        const saved = await api.draft(payload);
+        setState((previous) =>
+          previous
+            ? {
+                ...previous,
+                projects: previous.projects.map((project) =>
+                  project.id === payload.id
+                    ? { ...project, draft: saved }
+                    : project,
+                ),
+              }
+            : previous,
+        );
+        return saved;
+      }),
+    [],
+  );
+  const draftStatus = useSyncExternalStore(
+    autosave.subscribe,
+    autosave.getSnapshot,
+  );
   useEffect(() => {
     api
       .state()
@@ -294,18 +279,24 @@ export default function App() {
         setId(s?.projects[0]?.id || "");
       })
       .catch((e: Error) => setNotice(e.message));
+    return () => autosave.dispose();
   }, []);
   useEffect(() => {
-    setDraft(p ? structuredClone(r || emptyRevision(state)) : null);
-    setDirty(false);
+    const stored =
+      p?.draft && p.draft.baseRevisionId === (r?.id || null) ? p.draft : null;
+    const next = p
+      ? structuredClone({ ...(r || emptyRevision(state)), ...stored?.content })
+      : null;
+    setDraft(next);
+    setDirty(!!stored && contentKey(next) !== contentKey(r));
     setVersion("");
     setProposal(null);
-    setScope("all");
-  }, [id, r?.id]);
+  }, [id, r?.id, state?.workspaceId]);
   useEffect(() => {
-    if (p && tab === "blog" && !selected.includes("blog")) setTab("instagram");
-    if (p && tab === "instagram" && !selected.includes("instagram"))
-      setTab("blog");
+    setPanel(null);
+  }, [id, state?.workspaceId]);
+  useEffect(() => {
+    if (selected.length && !selected.includes(tab)) setTab(selected[0]);
   }, [id, JSON.stringify(selected), tab]);
   useEffect(() => {
     if (!busy) return;
@@ -314,8 +305,8 @@ export default function App() {
       const owner = activeAction.current;
       return api
         .state()
-        .then((value: State | null) => {
-          if (active && activeAction.current === owner) setState(value);
+        .then((s: State | null) => {
+          if (active && activeAction.current === owner) setState(s);
         })
         .catch(() => {});
     };
@@ -328,17 +319,27 @@ export default function App() {
   }, [busy]);
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
-      if (dirty || panelDirty || settingsDirty) {
+      if (autosave.getSnapshot().pending || current.current.settingsDirty) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty, panelDirty, settingsDirty]);
+    const off = (window.studio as any)?.onPrepareClose(async () => {
+      try {
+        await autosave.flush();
+        await api.finishClose();
+      } catch (error) {
+        setNotice((error as Error).message);
+      }
+    });
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      off?.();
+    };
+  }, [autosave]);
   async function act(name: string, payload?: any) {
     if (name === "cancel") {
-      const operation = state?.operation;
       if (!operation?.cancellable || operation.cancelRequested) return null;
       try {
         const owner = activeAction.current;
@@ -353,29 +354,25 @@ export default function App() {
       }
     }
     if (activeAction.current) return null;
-    const actionId = Symbol(name);
-    activeAction.current = actionId;
+    const action = Symbol(name);
+    activeAction.current = action;
     setWorking(name);
     setNotice("");
     try {
       const result = await api[name](payload);
-      if (result?.format) {
-        setState(result);
-        if (name === "open") {
-          setId(result.projects[0]?.id || "");
-          setScreen("studio");
-        }
-      } else {
-        // Proposals and boolean results do not carry a final workspace snapshot.
-        // Refresh before resolving so the editor never retains a completed operation.
-        setState(await api.state());
-        if (result === true) setNotice("Operação concluída.");
+      if (result?.format) setState(result);
+      else setState(await api.state());
+      if (name === "open" && result?.format) {
+        setId(result.projects[0]?.id || "");
+        setScreen("studio");
       }
       if (name.endsWith("Test")) setNotice("Conexão verificada com sucesso.");
+      if (result === true && name !== "cancel")
+        setNotice("Operação concluída.");
       return result;
-    } catch (e) {
+    } catch (error) {
       setNotice(
-        (e as Error).message.replace(
+        (error as Error).message.replace(
           /^Error invoking remote method '[^']+': Error: /,
           "",
         ),
@@ -386,56 +383,92 @@ export default function App() {
         .catch(() => {});
       return null;
     } finally {
-      if (activeAction.current === actionId) {
+      if (activeAction.current === action) {
         activeAction.current = null;
         setWorking("");
       }
     }
   }
-  function leave(action: () => void) {
+  async function flush() {
+    try {
+      await autosave.flush();
+      return true;
+    } catch (error) {
+      setNotice((error as Error).message);
+      return false;
+    }
+  }
+  async function leave(action: () => void) {
+    if (!(await flush())) return;
     if (
-      (dirty || panelDirty || settingsDirty) &&
-      !confirm("Descartar as alterações ainda não salvas?")
+      settingsDirty &&
+      !confirm("Descartar as configurações ainda não salvas?")
     )
       return;
-    setPanelDirty(false);
     setSettingsDirty(false);
-    setDirty(false);
-    setDraft(p ? structuredClone(r || emptyRevision(state)) : null);
     setProposal(null);
+    setPanel(null);
     action();
     setNav(false);
   }
   function change(next: Revision) {
+    if (!p) return;
+    const changed = contentKey(next) !== contentKey(r);
     setDraft(next);
-    setDirty(true);
-  }
-  async function save() {
-    if (!draft || !p) return null;
-    return act("edit", {
+    setDirty(changed);
+    current.current.draft = next;
+    current.current.dirty = changed;
+    autosave.schedule({
       id: p.id,
-      content: draft,
-      ...(r ? { baseRevisionId: r.id } : {}),
+      baseRevisionId: r?.id || null,
+      content: next,
     });
   }
-  async function generate(resume = false) {
+  async function save() {
+    if (!(await flush())) return null;
+    const latest = current.current;
+    if (!latest.p || !latest.draft) return null;
+    if (latest.r && !latest.dirty) return state;
+    return act("edit", {
+      id: latest.p.id,
+      content: latest.draft,
+      baseRevisionId: latest.r?.id,
+    });
+  }
+  async function generate(
+    resume = false,
+    mode: "research" | "adapt" = "research",
+    targets = selected,
+    instruction = "",
+  ) {
     if (!p) return;
-    if (dirty) {
-      setNotice("Salve suas alterações antes de gerar.");
+    if (resume && dirty) {
+      setNotice(
+        "O conteúdo foi editado. Inicie uma nova geração para usar o rascunho atual.",
+      );
       return;
     }
     if (window.studio && (!state?.unlocked || !state.openrouterConfigured)) {
       setNotice(
-        "Configure a chave OpenRouter em Modelos e conexões para usar a IA. A escrita manual continua disponível.",
+        "Configure a chave OpenRouter em Configurações para usar a IA.",
       );
       return;
     }
+    if (!resume && !(await save())) return;
+    setGenerating(false);
     await act("run", {
       id: p.id,
       resume,
-      instruction: resume ? steer : "",
-      targets: scope === "all" ? selected : [scope],
+      mode,
+      targets,
+      instruction: resume ? steer : instruction,
     });
+  }
+  async function openPublish() {
+    if (!(await save())) return;
+    setVersion("");
+    setRenderedRevision("");
+    setPanel("review");
   }
   const originalText = (target: RewriteRequest["target"], index?: number) =>
     target === "card"
@@ -446,18 +479,18 @@ export default function App() {
       : draft?.[target] || "";
   async function requestRewrite() {
     if (!rewriteTarget || !draft || !p) return;
-    const original = originalText(rewriteTarget.target, rewriteTarget.index);
-    let base = r;
-    if (!base || dirty) {
-      const saved = await save();
-      if (!saved) return;
-      base = saved.projects.find((q: Project) => q.id === id)?.revisions.at(-1);
-    }
+    const target = { ...rewriteTarget },
+      original = originalText(target.target, target.index),
+      ownerId = id;
+    const saved = await save();
+    if (!saved) return;
+    const base = saved.projects
+      .find((q: Project) => q.id === ownerId)
+      ?.revisions.at(-1);
     if (!base) return;
-    const target = { ...rewriteTarget };
     setRewriteTarget(null);
     const response = await act("rewrite", {
-      id,
+      id: ownerId,
       baseRevisionId: base.id,
       target: target.target,
       text: target.target === "card" ? undefined : original,
@@ -468,7 +501,7 @@ export default function App() {
       setProposal({
         ...response,
         original,
-        projectId: id,
+        projectId: ownerId,
         index: target.index,
       });
   }
@@ -477,19 +510,34 @@ export default function App() {
     proposal.projectId === id &&
     proposal.baseRevisionId === r?.id &&
     originalText(proposal.target, proposal.index) === proposal.original;
-  function applyProposal() {
+  async function applyProposal() {
     if (!proposal || !draft || !canApply) return;
-    if (proposal.target === "card")
-      change({
-        ...draft,
-        cards: draft.cards.map((c, i) =>
-          i === proposal.index ? { ...c, ...(proposal.value as Card) } : c,
-        ),
-      });
-    else change({ ...draft, [proposal.target]: proposal.value });
+    const next =
+      proposal.target === "card"
+        ? {
+            ...draft,
+            cards: draft.cards.map((c, i) =>
+              i === proposal.index ? { ...c, ...(proposal.value as Card) } : c,
+            ),
+          }
+        : { ...draft, [proposal.target]: proposal.value };
+    change(next);
     setProposal(null);
+    await save();
   }
-  const operation = state?.operation;
+  async function sendMessage() {
+    if (!p || !message.trim() || !(await flush())) return;
+    if (
+      !chatRequest.current ||
+      chatRequest.current.projectId !== id ||
+      chatRequest.current.message !== message
+    )
+      chatRequest.current = { id: crypto.randomUUID(), projectId: id, message };
+    if (await act("chat", { id, message, requestId: chatRequest.current.id })) {
+      setMessage("");
+      chatRequest.current = null;
+    }
+  }
   const operationNames: Record<string, string> = {
     run: "Gerando conteúdo",
     chat: "Respondendo à conversa",
@@ -500,730 +548,748 @@ export default function App() {
     wordpressConnect: "Conectando WordPress",
     bloggerConnect: "Conectando Blogger",
   };
-  return (
-    <div className="app desktop-studio">
-      <aside className={"sidebar " + (nav ? "shown" : "")}>
-        <div className="brand">
-          <BookOpen size={22} />
-          <span>
-            Social Media Agent<small>ESTÚDIO EDITORIAL</small>
-          </span>
-        </div>
+  const operationBanner = busy && (
+    <div className="notice operation-status" role="status" aria-live="polite">
+      <span>
+        {operation?.cancelRequested
+          ? "Cancelando operação…"
+          : operationNames[operation?.name || working] ||
+            "Operação em andamento…"}
+      </span>
+      {operation?.cancellable && (
         <button
-          className="workspace"
-          disabled={busy}
-          onClick={() => leave(() => void act("open"))}
+          data-testid="cancel-operation"
+          disabled={operation.cancelRequested}
+          onClick={() => act("cancel")}
         >
-          <FolderOpen size={18} />
-          <span>
-            {state?.name || "Abrir workspace"}
-            <small>Pasta local e portável</small>
-          </span>
+          Cancelar
         </button>
-        <div className="section-label">
-          PAUTAS
-          <button
-            aria-label="Nova pauta"
-            disabled={!state || busy}
-            onClick={() => setCreating(true)}
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-        <nav className="projects" aria-label="Pautas">
-          {state?.projects.map((project) => (
-            <button
-              key={project.id}
-              className={
-                id === project.id && screen === "studio" ? "selected" : ""
-              }
-              onClick={() =>
-                leave(() => {
-                  setId(project.id);
-                  setScreen("studio");
-                })
-              }
-            >
-              <FileText size={17} />
-              <span>
-                {project.title}
-                <small>{labels[project.status] || project.status}</small>
-              </span>
-            </button>
-          ))}
-        </nav>
-        <div className="side-bottom">
-          <button
-            className={screen === "knowledge" ? "selected" : ""}
-            disabled={!state}
-            onClick={() => leave(() => setScreen("knowledge"))}
-          >
-            <BookOpen size={18} />
-            Conhecimento
-          </button>
-          <button
-            disabled={!state}
-            onClick={() => leave(() => setScreen("settings"))}
-          >
-            <Settings size={18} />
-            Modelos e conexões
-          </button>
-          <button disabled={!state || busy} onClick={() => act("backup")}>
-            <Archive size={18} />
-            Copiar workspace
-          </button>
-          <p className="small muted">
-            Beta · Revisão humana antes de publicar.
-          </p>
-        </div>
-      </aside>
-      <main className="main">
-        <header>
-          <div className="breadcrumb">
-            <button
-              className="menu"
-              aria-label="Abrir navegação"
-              onClick={() => setNav(!nav)}
-            >
-              <PanelLeft size={20} />
-            </button>
-            <strong>
-              {screen === "knowledge"
-                ? "Conhecimento"
-                : screen === "settings"
-                  ? "Configurações"
-                  : "Produção editorial"}
-            </strong>
-          </div>
-          <span className="mode">
-            {!window.studio
-              ? "Prévia de desenvolvimento"
-              : state?.openrouterConfigured
-                ? "IA conectada"
-                : "Escrita manual disponível"}
-          </span>
-        </header>
-        {busy && (
-          <div
-            className="notice operation-status"
-            role="status"
-            aria-live="polite"
-          >
+      )}
+    </div>
+  );
+  const noticeValue = { message: notice, dismiss: () => setNotice("") };
+  return (
+    <NoticeContext.Provider value={noticeValue}>
+      <div className="app desktop-studio">
+        <aside className={"sidebar " + (nav ? "shown" : "")}>
+          <div className="brand">
+            <BookOpen size={22} />
             <span>
-              {operation?.cancelRequested
-                ? "Cancelando operação…"
-                : operationNames[operation?.name || working] ||
-                  "Operação em andamento…"}
-              {operation?.projectId &&
-                ` · ${state?.projects.find((project) => project.id === operation.projectId)?.title || "Pauta"}`}
+              Social Media Agent<small>ESTÚDIO EDITORIAL</small>
             </span>
-            {operation?.cancellable && (
-              <button
-                data-testid="cancel-operation"
-                disabled={operation.cancelRequested}
-                onClick={() => act("cancel")}
-              >
-                Cancelar
-              </button>
-            )}
           </div>
-        )}
-        {notice && (
-          <div className="notice" role="alert">
-            <span>{notice}</span>
-            <button aria-label="Fechar aviso" onClick={() => setNotice("")}>
-              <X size={16} />
+          <button
+            className="workspace"
+            disabled={busy}
+            onClick={() => leave(() => void act("open"))}
+          >
+            <FolderOpen size={18} />
+            <span>
+              {state?.name || "Abrir workspace"}
+              <small>Pasta local e portável</small>
+            </span>
+          </button>
+          <div className="section-label">
+            PAUTAS
+            <button
+              aria-label="Nova pauta"
+              disabled={!state || busy}
+              onClick={() => leave(() => setCreating(true))}
+            >
+              <Plus size={18} />
             </button>
           </div>
-        )}
-        {screen === "settings" && state ? (
-          <>
-            <section className="research-settings">
-              <h2>Ferramentas de pesquisa</h2>
-              <p>
-                O pesquisador escolhe entre as buscas permitidas conforme a
-                pauta. Web aberta usa os créditos da sua conta OpenRouter.
-              </p>
-              <ResearchSettings
-                state={state}
-                busy={busy}
-                act={act}
-                onDirty={setPanelDirty}
-              />
-            </section>
-            <SettingsPanel
+          <nav className="projects" aria-label="Pautas">
+            {state?.projects.map((project) => (
+              <button
+                key={project.id}
+                disabled={busy}
+                className={
+                  id === project.id && screen === "studio" ? "selected" : ""
+                }
+                onClick={() =>
+                  leave(() => {
+                    setId(project.id);
+                    setScreen("studio");
+                  })
+                }
+              >
+                <FileText size={17} />
+                <span>
+                  {project.title}
+                  <small>{labels[project.status] || project.status}</small>
+                </span>
+              </button>
+            ))}
+          </nav>
+          <div className="side-bottom">
+            <button
+              disabled={!state || busy}
+              className={screen === "settings" ? "selected" : ""}
+              onClick={() => leave(() => setScreen("settings"))}
+            >
+              <Settings size={18} />
+              Configurações
+            </button>
+            <details>
+              <summary>Workspace</summary>
+              <button
+                disabled={!state || busy}
+                onClick={async () => {
+                  if (await flush()) await act("backup");
+                }}
+              >
+                <Archive size={18} />
+                Copiar workspace
+              </button>
+            </details>
+          </div>
+        </aside>
+        <main className="main">
+          <header>
+            <div className="breadcrumb">
+              <button
+                className="nav-toggle"
+                aria-label="Abrir navegação"
+                onClick={() => setNav(!nav)}
+              >
+                <PanelLeft size={18} />
+              </button>
+              <strong>
+                {screen === "settings" ? "Configurações" : "Produção editorial"}
+              </strong>
+            </div>
+            <span className="mode">
+              {!window.studio
+                ? "Prévia de desenvolvimento"
+                : state?.openrouterConfigured
+                  ? "IA conectada"
+                  : "Escrita manual disponível"}
+            </span>
+          </header>
+          {panel !== "chat" && operationBanner}
+          {!panel &&
+            !creating &&
+            !projectForm &&
+            !generating &&
+            !rewriteTarget &&
+            !proposal && <Notice value={noticeValue} />}
+          {screen === "settings" && state ? (
+            <SettingsView
+              key={state.workspaceId || state.name}
               state={state}
               busy={busy}
               act={act}
               onDirty={setSettingsDirty}
             />
-          </>
-        ) : screen === "knowledge" && state ? (
-          <KnowledgePanel
-            key={state.name}
+          ) : !p ? (
+            <section className="welcome">
+              <h1>Crie conteúdo com a sua voz.</h1>
+              <p>
+                Escreva para blog e Instagram, use suas imagens ou peça ajuda à
+                IA.
+              </p>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => (state ? setCreating(true) : act("open"))}
+              >
+                {state ? "Criar primeira pauta" : "Escolher pasta de trabalho"}
+              </button>
+            </section>
+          ) : (
+            <>
+              <section className="project-header">
+                <div>
+                  <div className="eyebrow">
+                    {selected
+                      .map((c) => (c === "blog" ? "Blog" : "Instagram"))
+                      .join(" e ")}
+                  </div>
+                  <h1>{p.title}</h1>
+                  <button
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => setProjectForm(true)}
+                  >
+                    Briefing
+                  </button>
+                </div>
+                <div className="actions">
+                  <button
+                    disabled={busy || !!version}
+                    onClick={() => setGenerating(true)}
+                  >
+                    <Play size={16} />
+                    {r?.article || r?.cards.length
+                      ? "Gerar com IA"
+                      : "Criar com IA"}
+                  </button>
+                  <button
+                    className="primary"
+                    disabled={
+                      busy ||
+                      !!version ||
+                      !draft ||
+                      (!draft.article.trim() && !draft.cards.length)
+                    }
+                    onClick={openPublish}
+                  >
+                    Publicar
+                  </button>
+                </div>
+              </section>
+              {p.draftError && <p role="alert">{p.draftError}</p>}
+              {session && (
+                <RunActivity
+                  session={session}
+                  busy={busy}
+                  steer={steer}
+                  setSteer={setSteer}
+                  resume={() => generate(true)}
+                />
+              )}
+              <div className="production">
+                <section className="editor-panel">
+                  <div
+                    className="tabs"
+                    role="tablist"
+                    aria-label="Materiais da pauta"
+                  >
+                    {selected.map((channel) => (
+                      <button
+                        role="tab"
+                        aria-selected={tab === channel}
+                        className={tab === channel ? "active" : ""}
+                        key={channel}
+                        onClick={() => setTab(channel)}
+                      >
+                        {channel === "blog" ? (
+                          <FileText size={16} />
+                        ) : (
+                          <Images size={16} />
+                        )}
+                        {channel === "blog" ? "Blog" : "Instagram"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="editor-tools">
+                    <span role="status" data-testid="draft-status">
+                      {draftStatus.error
+                        ? "Falha ao salvar rascunho"
+                        : draftStatus.pending
+                          ? "Salvando rascunho…"
+                          : version
+                            ? "Revisão histórica · somente leitura"
+                            : dirty
+                              ? "Rascunho salvo automaticamente"
+                              : "Revisão salva"}
+                    </span>
+                    <div className="actions">
+                      {draftStatus.error && (
+                        <button onClick={flush}>Tentar salvar novamente</button>
+                      )}
+                      {version && (
+                        <button onClick={() => setVersion("")}>
+                          Voltar ao rascunho
+                        </button>
+                      )}
+                      <details className="context-tools">
+                        <summary>Ferramentas da pauta</summary>
+                        <div className="actions">
+                          {(
+                            [
+                              ["sources", "Fontes"],
+                              ["chat", "Conversa"],
+                              ["history", "Histórico"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <button key={key} onClick={() => setPanel(key)}>
+                              {label}
+                            </button>
+                          ))}
+                          <button
+                            disabled={busy || !!version || !window.studio}
+                            onClick={async () => {
+                              if (await flush())
+                                await act("export", { id, draft: true });
+                            }}
+                          >
+                            Exportar rascunho
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+                  {tab === "blog" && displayed && (
+                    <>
+                      <BlogEditor
+                        key={(state?.workspaceId || "") + id + version}
+                        value={displayed.article}
+                        readOnly={readOnly}
+                        onChange={(article) => change({ ...draft!, article })}
+                      />
+                      <div className="content-actions">
+                        <button
+                          disabled={
+                            readOnly || busy || !displayed.article.trim()
+                          }
+                          onClick={() =>
+                            setRewriteTarget({ target: "article" })
+                          }
+                        >
+                          Reescrever artigo com IA
+                        </button>
+                        {session?.artifacts?.article && !session.revisionId && (
+                          <details>
+                            <summary>
+                              Texto parcial da geração interrompida
+                            </summary>
+                            <BlogPreview value={session.artifacts.article} />
+                            <button
+                              disabled={readOnly}
+                              onClick={() =>
+                                change({
+                                  ...draft!,
+                                  article: session.artifacts!.article!,
+                                })
+                              }
+                            >
+                              Usar este rascunho
+                            </button>
+                          </details>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {tab === "instagram" && displayed && state && (
+                    <CardEditor
+                      key={(state.workspaceId || "") + id}
+                      revision={displayed}
+                      onChange={change}
+                      api={api}
+                      act={act}
+                      busy={busy}
+                      readOnly={readOnly}
+                      state={state}
+                      rewrite={(target, index) =>
+                        setRewriteTarget({ target, index })
+                      }
+                    />
+                  )}
+                </section>
+              </div>
+            </>
+          )}
+        </main>
+        {creating && state && (
+          <ProjectDialog
             state={state}
             busy={busy}
-            act={act}
-            onDirty={setPanelDirty}
+            onClose={() => setCreating(false)}
+            onSubmit={async (fields) => {
+              if (!(await flush())) return;
+              const result = await act("create", { ...fields, manual: true });
+              if (result) {
+                setId(result.projects[0].id);
+                setScreen("studio");
+                setCreating(false);
+              }
+            }}
           />
-        ) : !p ? (
-          <section className="welcome">
-            <h1>Crie conteúdo com a sua voz.</h1>
-            <p>
-              Escreva para blog e Instagram, use seus próprios textos e imagens
-              ou peça ajuda à IA.
-            </p>
+        )}
+        {projectForm && p && state && (
+          <ProjectDialog
+            project={p}
+            state={state}
+            busy={busy}
+            onClose={() => setProjectForm(false)}
+            onSubmit={async (fields) => {
+              if (await act("update", { id, ...fields })) setProjectForm(false);
+            }}
+          />
+        )}
+        {generating && p && (
+          <GenerationDialog
+            project={p}
+            canAdapt={!!draft?.article.trim()}
+            busy={busy}
+            onClose={() => setGenerating(false)}
+            submit={(mode, targets, instruction) =>
+              generate(false, mode, targets, instruction)
+            }
+          />
+        )}
+        {panel === "sources" && p && (
+          <Modal title="Fontes" onClose={() => setPanel(null)}>
+            <RevisionSources
+              project={p}
+              revision={version ? p.revisions.find((v) => v.id === version) : r}
+            />
+          </Modal>
+        )}
+        {panel === "history" && p && (
+          <Modal title="Histórico" onClose={() => setPanel(null)}>
+            <div className="content-pad">
+              <label>
+                Revisão exibida
+                <select
+                  aria-label="Revisão exibida"
+                  value={version}
+                  onChange={(e) => {
+                    setVersion(e.target.value);
+                    setPanel(null);
+                  }}
+                >
+                  <option value="">Rascunho atual</option>
+                  {p.revisions.map((revision, i) => (
+                    <option key={revision.id} value={revision.id}>
+                      Revisão {i + 1} ·{" "}
+                      {new Date(revision.createdAt).toLocaleString("pt-BR")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button disabled={busy || !dirty || !!version} onClick={save}>
+                Criar revisão
+              </button>
+              {p.draft && p.draft.baseRevisionId !== (r?.id || null) && (
+                <div className="inline-note">
+                  <p>Existe um rascunho de uma revisão anterior.</p>
+                  <button
+                    disabled={busy}
+                    onClick={() => {
+                      change({
+                        ...(r || emptyRevision(state)),
+                        ...p.draft!.content,
+                      });
+                      setVersion("");
+                      setPanel(null);
+                    }}
+                  >
+                    Recuperar rascunho anterior
+                  </button>
+                </div>
+              )}
+              {p.sessions
+                ?.filter((s) => s.artifacts?.partial)
+                .map((s) => (
+                  <details key={s.id}>
+                    <summary>
+                      Resposta parcial · {s.artifacts!.partial!.role}
+                    </summary>
+                    <pre className="prose">{s.artifacts!.partial!.content}</pre>
+                    {s.artifacts!.partial!.role === "writer" && (
+                      <button
+                        disabled={busy || !!version}
+                        onClick={() => {
+                          change({
+                            ...draft!,
+                            article: s.artifacts!.partial!.content,
+                          });
+                          setPanel(null);
+                        }}
+                      >
+                        Usar texto parcial como rascunho
+                      </button>
+                    )}
+                  </details>
+                ))}
+              {p.runs.map((run) => (
+                <details key={run.id}>
+                  <summary>
+                    {run.role} · {run.phase || "produção"} · {run.status}
+                  </summary>
+                  <p>{run.model}</p>
+                  {run.contextUsage && (
+                    <p>
+                      Contexto estimado: {run.contextUsage.estimatedInputTokens}
+                      /{run.contextUsage.inputBudget} tokens · saída: até{" "}
+                      {run.contextUsage.maxTokens}
+                    </p>
+                  )}
+                  <p>
+                    {run.usage?.total_tokens
+                      ? `${run.usage.total_tokens} tokens informados pelo provedor`
+                      : "Consumo não informado"}
+                  </p>
+                  {run.error && <p>{run.error}</p>}
+                </details>
+              ))}
+              {p.messages
+                .filter((m) => m.internal && (m as any).partial)
+                .map((m, i) => (
+                  <details key={i}>
+                    <summary>Reescrita parcial preservada</summary>
+                    <pre className="prose">{m.content}</pre>
+                  </details>
+                ))}
+            </div>
+          </Modal>
+        )}
+        {panel === "chat" && p && (
+          <Modal title="Conversa" onClose={() => setPanel(null)}>
+            {operationBanner}
+            <div className="chat">
+              <div className="messages">
+                {p.messages
+                  .filter((m) => !m.internal && !m.agent)
+                  .map((m, i) => (
+                    <article
+                      key={i}
+                      className={m.role === "user" ? "user-message" : ""}
+                    >
+                      <strong>
+                        {m.role === "user" ? "Você" : "Assistente"}
+                      </strong>
+                      <pre className="prose">{m.content}</pre>
+                      {["failed", "cancelled"].includes(m.status || "") && (
+                        <small>
+                          Resposta não concluída. Sua mensagem foi preservada.
+                        </small>
+                      )}
+                    </article>
+                  ))}
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void sendMessage();
+                }}
+              >
+                <textarea
+                  aria-label="Mensagem"
+                  maxLength={10000}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                />
+                <button
+                  className="primary"
+                  aria-label="Enviar mensagem"
+                  disabled={busy || !message.trim()}
+                >
+                  <Send size={18} />
+                </button>
+              </form>
+            </div>
+          </Modal>
+        )}
+        {panel === "review" && p && r && state && (
+          <Modal title="Revisar e publicar" onClose={() => setPanel(null)}>
+            <div className="review-content content-pad">
+              <p>
+                Revisão {p.revisions.length} · {p.title}
+              </p>
+              {selected.includes("blog") && (
+                <details>
+                  <summary>Conferir artigo</summary>
+                  <BlogPreview value={r.article} />
+                </details>
+              )}
+              {selected.includes("instagram") && (
+                <section>
+                  <CardPreviews
+                    key={(state.workspaceId || "") + r.id}
+                    revision={r}
+                    api={api}
+                    onRendered={setRenderedRevision}
+                  />
+                  <p className="caption-preview">{r.caption}</p>
+                </section>
+              )}
+              <details
+                className="review-feedback"
+                data-review-status={p.reviewFeedback?.status || "none"}
+              >
+                <summary>
+                  {p.reviewFeedback?.status === "current"
+                    ? "Revisão com IA desta versão"
+                    : p.reviewFeedback?.status === "stale"
+                      ? "Revisão anterior com IA — desatualizada"
+                      : p.reviewFeedback?.status === "legacy"
+                        ? "Revisão antiga — versão não identificada"
+                        : "Esta versão ainda não foi revisada pela IA"}
+                </summary>
+                <pre className="prose">
+                  {p.reviewFeedback?.content ||
+                    "A revisão pode ser feita manualmente."}
+                </pre>
+              </details>
+              <PublishDestinations
+                project={p}
+                state={state}
+                busy={busy}
+                dirty={dirty}
+                renderedRevision={renderedRevision}
+                act={act}
+                openSettings={() => leave(() => setScreen("settings"))}
+              />
+              {selected.includes("blog") &&
+                !state.settings.bloggerId &&
+                !state.settings.wordpressUrl && (
+                  <button
+                    disabled={busy}
+                    onClick={() => leave(() => setScreen("settings"))}
+                  >
+                    Conectar destino do blog
+                  </button>
+                )}
+            </div>
+          </Modal>
+        )}
+        {rewriteTarget && (
+          <Modal
+            title="Reescrever com IA"
+            onClose={() => setRewriteTarget(null)}
+          >
+            <label>
+              Orientação
+              <textarea
+                aria-label="Orientação para reescrita"
+                value={rewriteInstruction}
+                onChange={(e) => setRewriteInstruction(e.target.value)}
+                maxLength={10000}
+              />
+            </label>
+            <p>Você poderá comparar e escolher se aplica a sugestão.</p>
             <button
               className="primary"
               disabled={busy}
-              onClick={() => (state ? setCreating(true) : act("open"))}
+              onClick={requestRewrite}
             >
-              {state ? "Criar primeira pauta" : "Escolher pasta de trabalho"}
+              Solicitar sugestão
             </button>
-          </section>
-        ) : (
-          <>
-            <section className="project-header">
-              <div>
-                <div className="eyebrow">
-                  {labels[p.status] || p.status} ·{" "}
-                  {selected
-                    .map((v) => (v === "blog" ? "Blog" : "Instagram"))
-                    .join(" e ")}
-                </div>
-                <h1>{p.title}</h1>
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => setProjectForm(true)}
-                >
-                  Briefing, canais e pesquisa
-                </button>
-              </div>
-              <div className="actions">
-                {!busy && (
-                  <>
-                    <select
-                      aria-label="Canal a gerar"
-                      value={scope}
-                      onChange={(e) => setScope(e.target.value)}
-                    >
-                      <option value="all">
-                        {selected.length === 2
-                          ? "Blog e Instagram"
-                          : selected[0] === "blog"
-                            ? "Blog"
-                            : "Instagram"}
-                      </option>
-                      {selected.length === 2 && (
-                        <>
-                          <option value="blog">Somente blog</option>
-                          <option value="instagram">Somente Instagram</option>
-                        </>
-                      )}
-                    </select>
-                    <button
-                      disabled={busy || dirty}
-                      onClick={() => generate(false)}
-                    >
-                      <Play size={16} />
-                      {r ? "Gerar com IA" : "Criar com IA"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </section>
-            {session && (
-              <RunActivity
-                session={session}
-                busy={busy}
-                steer={steer}
-                setSteer={setSteer}
-                resume={() => generate(true)}
-              />
-            )}
-            <div className="production">
-              <section className="editor-panel">
-                <div
-                  className="tabs"
-                  role="tablist"
-                  aria-label="Materiais da pauta"
-                >
-                  {(
-                    [
-                      ["blog", "Blog", FileText],
-                      ["instagram", "Instagram", Images],
-                      ["sources", "Fontes", Search],
-                      ["chat", "Conversa", MessageSquare],
-                      ["review", "Revisar e publicar", CheckCheck],
-                    ] as const
-                  )
-                    .filter(
-                      ([key]) =>
-                        !["blog", "instagram"].includes(key) ||
-                        selected.includes(key as Channel),
-                    )
-                    .map(([key, label, Icon]) => (
-                      <button
-                        role="tab"
-                        aria-selected={tab === key}
-                        className={tab === key ? "active" : ""}
-                        key={key}
-                        onClick={() => setTab(key)}
-                      >
-                        <Icon size={16} />
-                        {label}
-                      </button>
-                    ))}
-                </div>
-                {["blog", "instagram", "sources"].includes(tab) && (
-                  <div className="editor-tools">
-                    <span role="status">
-                      {dirty
-                        ? "Alterações não salvas"
-                        : r
-                          ? "Revisão salva"
-                          : "Rascunho · comece a escrever"}
-                    </span>
-                    <div className="actions">
-                      <button
-                        className="text-button"
-                        onClick={() => leave(() => setScreen("knowledge"))}
-                      >
-                        Preferências do autor
-                      </button>
-                      {r && (
-                        <select
-                          aria-label="Revisão exibida"
-                          value={version}
-                          onChange={(e) => {
-                            if (
-                              dirty &&
-                              !confirm(
-                                "Descartar as alterações ainda não salvas?",
-                              )
-                            )
-                              return;
-                            setDraft(structuredClone(r));
-                            setDirty(false);
-                            setVersion(e.target.value);
-                          }}
-                        >
-                          <option value="">Revisão atual</option>
-                          {p.revisions.slice(0, -1).map((v, i) => (
-                            <option value={v.id} key={v.id}>
-                              Revisão {i + 1}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        className="primary"
-                        disabled={busy || !dirty || !!version}
-                        onClick={save}
-                      >
-                        <Save size={16} />
-                        Salvar revisão
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {tab === "blog" && displayed && (
-                  <>
-                    <BlogEditor
-                      key={id + version}
-                      value={displayed.article}
-                      readOnly={readOnly}
-                      onChange={(article) => change({ ...draft!, article })}
-                    />
-                    <div className="content-actions">
-                      <button
-                        disabled={readOnly || busy || !displayed.article.trim()}
-                        onClick={() => setRewriteTarget({ target: "article" })}
-                      >
-                        Reescrever artigo com IA
-                      </button>
-                      {session?.artifacts?.article && !session.revisionId && (
-                        <details>
-                          <summary>
-                            Texto parcial da geração interrompida
-                          </summary>
-                          <BlogPreview value={session.artifacts.article} />
-                          <button
-                            disabled={readOnly}
-                            onClick={() =>
-                              change({
-                                ...draft!,
-                                article: session.artifacts!.article!,
-                              })
-                            }
-                          >
-                            Usar este rascunho
-                          </button>
-                        </details>
-                      )}
-                    </div>
-                  </>
-                )}
-                {tab === "instagram" && displayed && state && (
-                  <CardEditor
-                    revision={displayed}
-                    onChange={change}
-                    api={api}
-                    act={act}
-                    busy={busy}
-                    readOnly={readOnly}
-                    state={state}
-                    rewrite={(target, index) =>
-                      setRewriteTarget({ target, index })
-                    }
-                  />
-                )}
-                {tab === "sources" && (
-                  <RevisionSources
-                    project={p}
-                    revision={
-                      version
-                        ? p.revisions.find((item) => item.id === version)
-                        : r
-                    }
-                  />
-                )}
-                {tab === "chat" && (
-                  <div className="chat">
-                    <div className="messages">
-                      {p.messages
-                        .filter((m) => !m.internal)
-                        .map((m, i) => (
-                          <article
-                            key={i}
-                            className={m.role === "user" ? "user-message" : ""}
-                          >
-                            <strong>
-                              {m.role === "user"
-                                ? "Você"
-                                : m.agent || "Assistente"}
-                            </strong>
-                            <pre className="prose">{m.content}</pre>
-                            {["cancelled", "failed"].includes(
-                              m.status || "",
-                            ) && (
-                              <small>
-                                {m.status === "cancelled"
-                                  ? "Resposta cancelada"
-                                  : "Resposta não concluída"}{" "}
-                                · Sua mensagem foi preservada.
-                              </small>
-                            )}
-                          </article>
-                        ))}
-                      {!p.messages.length && (
-                        <p className="muted">
-                          Converse sobre a pauta ou registre orientações para os
-                          agentes.
-                        </p>
-                      )}
-                    </div>
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (
-                          !chatRequest.current ||
-                          chatRequest.current.projectId !== id ||
-                          chatRequest.current.message !== message
-                        )
-                          chatRequest.current = {
-                            id: crypto.randomUUID(),
-                            projectId: id,
-                            message,
-                          };
-                        if (
-                          await act("chat", {
-                            id,
-                            message,
-                            requestId: chatRequest.current.id,
-                          })
-                        ) {
-                          setMessage("");
-                          chatRequest.current = null;
-                        }
-                      }}
-                    >
-                      <textarea
-                        aria-label="Mensagem"
-                        maxLength={10000}
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                      />
-                      <button
-                        className="primary"
-                        aria-label="Enviar mensagem"
-                        disabled={busy || !message.trim()}
-                      >
-                        <Send size={18} />
-                      </button>
-                    </form>
-                  </div>
-                )}
-                {tab === "review" && (
-                  <div className="content-pad review-content">
-                    <h2>Revisar e publicar</h2>
-                    <p className="small muted">
-                      Prévia da revisão atual salva
-                      {r ? ` (${p.revisions.length})` : ""}.
-                    </p>
-                    {dirty && (
-                      <p role="alert" className="inline-note">
-                        Salve as alterações antes de aprovar. Abaixo está a
-                        última revisão salva.
-                      </p>
-                    )}
-                    {r?.demo && (
-                      <p className="inline-note">
-                        Esta revisão contém material de demonstração e não pode
-                        ser publicada.
-                      </p>
-                    )}
-                    {r ? (
-                      <>
-                        {selected.includes("blog") && (
-                          <section>
-                            <h3>Blog · artigo final</h3>
-                            <BlogPreview value={r.article} />
-                          </section>
-                        )}
-                        {selected.includes("instagram") && (
-                          <section>
-                            <h3>Instagram · cards e legenda</h3>
-                            <CardPreviews
-                              revision={r}
-                              api={api}
-                              onRendered={setRenderedRevision}
-                            />
-                            <p className="caption-preview">{r.caption}</p>
-                          </section>
-                        )}
-                        <details
-                          className="review-feedback"
-                          data-review-status={
-                            p.reviewFeedback?.status || "none"
-                          }
-                        >
-                          <summary>
-                            {p.reviewFeedback?.status === "current"
-                              ? "Revisão com IA desta versão"
-                              : p.reviewFeedback?.status === "stale"
-                                ? "Revisão anterior com IA — desatualizada"
-                                : p.reviewFeedback?.status === "legacy"
-                                  ? "Revisão antiga — versão não identificada"
-                                  : "Esta versão ainda não foi revisada pela IA"}
-                          </summary>
-                          <p className="small muted">
-                            {p.reviewFeedback?.status === "current"
-                              ? "Avaliação vinculada a esta revisão. Canais conferidos: " +
-                                p.reviewFeedback.channels?.join(" e ") +
-                                "."
-                              : "As observações antigas não validam o conteúdo atual. A revisão e a aprovação manual continuam disponíveis."}
-                          </p>
-                          {p.reviewFeedback?.content && (
-                            <pre className="prose">
-                              {p.reviewFeedback.content}
-                            </pre>
-                          )}
-                        </details>
-                      </>
-                    ) : (
-                      <p>
-                        Escreva e salve uma revisão para conferir os materiais.
-                      </p>
-                    )}
-                    {state && (
-                      <PublishDestinations
-                        project={p}
-                        state={state}
-                        busy={busy}
-                        dirty={dirty}
-                        renderedRevision={renderedRevision}
-                        act={act}
-                        openSettings={() => leave(() => setScreen("settings"))}
-                      />
-                    )}
-                    {selected.includes("blog") &&
-                      !state?.settings.bloggerId &&
-                      !state?.settings.wordpressUrl && (
-                        <p>
-                          Conecte o Blogger ou WordPress em{" "}
-                          <button
-                            className="text-button"
-                            onClick={() => leave(() => setScreen("settings"))}
-                          >
-                            Modelos e conexões
-                          </button>{" "}
-                          para publicar o blog.
-                        </p>
-                      )}
-                    <p className="small muted">
-                      A aprovação vale para a revisão e o destino indicados.
-                      Editar exige uma nova aprovação.
-                    </p>
-                  </div>
-                )}
+          </Modal>
+        )}
+        {proposal && (
+          <Modal
+            title="Sugestão de reescrita"
+            onClose={() => setProposal(null)}
+          >
+            <div className="suggestion-comparison">
+              <section>
+                <h3>Original</h3>
+                <pre>
+                  {proposal.target === "card"
+                    ? Object.values(JSON.parse(proposal.original)).join("\n\n")
+                    : proposal.original}
+                </pre>
+              </section>
+              <section>
+                <h3>Sugestão</h3>
+                <pre>
+                  {typeof proposal.value === "string"
+                    ? proposal.value
+                    : `${proposal.value.title}\n\n${proposal.value.body}`}
+                </pre>
               </section>
             </div>
-          </>
+            {!canApply && (
+              <p role="alert">
+                O texto ou a revisão mudou. Solicite uma nova sugestão.
+              </p>
+            )}
+            <div className="actions">
+              <button onClick={() => setProposal(null)}>
+                Descartar sugestão
+              </button>
+              <button
+                className="primary"
+                disabled={!canApply || busy}
+                onClick={applyProposal}
+              >
+                Aplicar sugestão
+              </button>
+            </div>
+          </Modal>
         )}
-      </main>
-      {creating && state && (
-        <ProjectDialog
-          state={state}
-          busy={busy}
-          onClose={() => setCreating(false)}
-          onSubmit={async (fields) => {
-            if (
-              (dirty || panelDirty || settingsDirty) &&
-              !confirm("Descartar as alterações ainda não salvas?")
-            )
-              return;
-            const result = await act("create", fields);
-            if (result) {
-              setId(result.projects[0].id);
-              setScreen("studio");
-              setTab(fields.channels.includes("blog") ? "blog" : "instagram");
-              setCreating(false);
-              setPanelDirty(false);
-              setSettingsDirty(false);
-              if (!fields.manual) {
-                if (
-                  window.studio &&
-                  (!result.unlocked || !result.openrouterConfigured)
-                ) {
-                  setNotice(
-                    "Pauta criada. Configure a chave OpenRouter em Modelos e conexões para gerar com IA, ou comece a escrever no editor.",
-                  );
-                } else {
-                  await act("run", {
-                    id: result.projects[0].id,
-                    targets: fields.channels,
-                  });
-                }
-              }
-            }
-          }}
-        />
-      )}
-      {projectForm && p && state && (
-        <ProjectDialog
-          project={p}
-          state={state}
-          busy={busy}
-          onClose={() => setProjectForm(false)}
-          onSubmit={async (fields) => {
-            if (await act("update", { id, ...fields })) setProjectForm(false);
-          }}
-        />
-      )}
-      {rewriteTarget && (
-        <Modal title="Reescrever com IA" onClose={() => setRewriteTarget(null)}>
-          <label>
-            Orientação
-            <textarea
-              aria-label="Orientação para reescrita"
-              value={rewriteInstruction}
-              onChange={(e) => setRewriteInstruction(e.target.value)}
-              maxLength={10000}
-            />
-          </label>
-          <p>
-            O texto será salvo antes da solicitação. Você poderá comparar e
-            escolher se aplica a sugestão.
-          </p>
-          <button className="primary" disabled={busy} onClick={requestRewrite}>
-            Solicitar sugestão
-          </button>
-        </Modal>
-      )}
-      {proposal && (
-        <Modal title="Sugestão de reescrita" onClose={() => setProposal(null)}>
-          <div className="suggestion-comparison">
-            <section>
-              <h3>Original</h3>
-              <pre>
-                {proposal.target === "card"
-                  ? Object.values(JSON.parse(proposal.original)).join("\n\n")
-                  : proposal.original}
-              </pre>
-            </section>
-            <section>
-              <h3>Sugestão</h3>
-              <pre>
-                {typeof proposal.value === "string"
-                  ? proposal.value
-                  : `${proposal.value.title}\n\n${proposal.value.body}`}
-              </pre>
-            </section>
-          </div>
-          {!canApply && (
-            <p role="alert">
-              O texto ou a revisão mudou. Solicite uma nova sugestão para
-              preservar suas edições.
-            </p>
-          )}
-          <div className="actions">
-            <button onClick={() => setProposal(null)}>
-              Descartar sugestão
-            </button>
-            <button
-              className="primary"
-              disabled={!canApply || busy}
-              onClick={applyProposal}
-            >
-              Aplicar sugestão
-            </button>
-          </div>
-        </Modal>
-      )}
-    </div>
+      </div>
+    </NoticeContext.Provider>
   );
 }
-
-function ResearchSettings({
-  state,
+function GenerationDialog({
+  project,
+  canAdapt,
   busy,
-  act,
-  onDirty,
+  onClose,
+  submit,
 }: {
-  state: State;
+  project: Project;
+  canAdapt: boolean;
   busy: boolean;
-  act: (n: string, p?: any) => Promise<any>;
-  onDirty: (v: boolean) => void;
+  onClose: () => void;
+  submit: (
+    mode: "research" | "adapt",
+    targets: Channel[],
+    instruction: string,
+  ) => Promise<void>;
 }) {
-  const [value, setValue] = useState<ResearchProvider[]>(
-    state.settings.research || ["pubmed"],
+  const selected = channelsOf(project) as Channel[];
+  const [targets, setTargets] = useState<Channel[]>(selected);
+  const [mode, setMode] = useState<"research" | "adapt">(
+    canAdapt ? "adapt" : "research",
   );
+  const [instruction, setInstruction] = useState("");
   return (
-    <>
-      <ResearchChoices
-        value={value}
-        disabled={busy}
-        onChange={(v) => {
-          setValue(v);
-          onDirty(true);
-        }}
-      />
-      <button
-        disabled={busy || !value.length}
-        onClick={async () => {
-          if (
-            await act("settings", {
-              settings: { ...state.settings, research: value },
-            })
-          )
-            onDirty(false);
+    <Modal title="Gerar conteúdo" onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit(mode, targets, instruction);
         }}
       >
-        Salvar ferramentas de pesquisa
-      </button>
-    </>
+        {canAdapt && (
+          <label>
+            Operação
+            <select
+              aria-label="Operação de geração"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as typeof mode)}
+            >
+              <option value="adapt">
+                Adaptar artigo salvo · sem nova pesquisa
+              </option>
+              <option value="research">Pesquisar e criar conteúdo novo</option>
+            </select>
+          </label>
+        )}
+        {selected.length > 1 && (
+          <fieldset>
+            <legend>Canais a gerar</legend>
+            <div className="choice-row">
+              {selected.map((channel) => (
+                <label className="check" key={channel}>
+                  <input
+                    type="checkbox"
+                    checked={targets.includes(channel)}
+                    onChange={(e) =>
+                      setTargets(
+                        e.target.checked
+                          ? [...targets, channel]
+                          : targets.filter((c) => c !== channel),
+                      )
+                    }
+                  />
+                  {channel === "blog" ? "Blog" : "Instagram"}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        <label>
+          Orientação desta geração
+          <textarea
+            maxLength={10000}
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            placeholder="Opcional"
+          />
+        </label>
+        <button className="primary" disabled={busy || !targets.length}>
+          {mode === "adapt" ? "Adaptar material" : "Pesquisar e criar"}
+        </button>
+      </form>
+    </Modal>
   );
 }
 function ProjectDialog({
@@ -1237,29 +1303,28 @@ function ProjectDialog({
   state: State;
   busy: boolean;
   onClose: () => void;
-  onSubmit: (v: {
+  onSubmit: (fields: {
     title: string;
     brief: string;
     channels: Channel[];
     research: ResearchProvider[] | null;
-    manual: boolean;
+    decisions: Decisions;
   }) => Promise<void>;
 }) {
   const [title, setTitle] = useState(project?.title || ""),
-    [brief, setBrief] = useState(project?.brief || ""),
-    [channels, setChannels] = useState<Channel[]>(
-      project ? (channelsOf(project) as Channel[]) : [],
-    ),
-    [manual, setManual] = useState(false),
-    [override, setOverride] = useState(!!project?.research),
+    [brief, setBrief] = useState(project?.brief || "");
+  const [channels, setChannels] = useState<Channel[]>(
+    project ? (channelsOf(project) as Channel[]) : ["blog"],
+  );
+  const [decisions, setDecisions] = useState<Decisions>(
+    project?.decisions || emptyDecisions,
+  );
+  const [override, setOverride] = useState(!!project?.research),
     [research, setResearch] = useState<ResearchProvider[]>(
       project?.research || state.settings.research || ["pubmed"],
     );
   return (
-    <Modal
-      title={project ? "Briefing, canais e pesquisa" : "Nova pauta"}
-      onClose={onClose}
-    >
+    <Modal title={project ? "Briefing" : "Nova pauta"} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -1267,8 +1332,8 @@ function ProjectDialog({
             title,
             brief,
             channels,
+            decisions,
             research: override ? research : null,
-            manual,
           });
         }}
       >
@@ -1285,61 +1350,56 @@ function ProjectDialog({
         <label>
           Briefing
           <textarea
+            aria-label="Briefing"
+            maxLength={200000}
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
-            maxLength={200000}
-            placeholder="Público, objetivo e orientações para esta pauta"
+            placeholder="O que o conteúdo deve abordar"
           />
         </label>
         <fieldset>
           <legend>Canais desta pauta</legend>
           <div className="choice-row">
-            {(
-              [
-                ["blog", "Blog"],
-                ["instagram", "Instagram"],
-              ] as const
-            ).map(([key, label]) => (
-              <label className="check" key={key}>
+            {(["blog", "instagram"] as const).map((channel) => (
+              <label className="check" key={channel}>
                 <input
                   type="checkbox"
-                  checked={channels.includes(key)}
+                  checked={channels.includes(channel)}
                   onChange={(e) =>
                     setChannels(
                       e.target.checked
-                        ? [...channels, key]
-                        : channels.filter((v) => v !== key),
+                        ? [...channels, channel]
+                        : channels.filter((c) => c !== channel),
                     )
                   }
                 />
-                {label}
+                {channel === "blog" ? "Blog" : "Instagram"}
               </label>
             ))}
           </div>
         </fieldset>
-        {!project && (
-          <fieldset>
-            <legend>Como começar</legend>
-            <label className="check">
-              <input
-                type="radio"
-                name="creation"
-                checked={!manual}
-                onChange={() => setManual(false)}
+        <details className="project-decisions">
+          <summary>Decisões permanentes da pauta</summary>
+          {(
+            [
+              ["audience", "Público", 600],
+              ["objective", "Objetivo", 600],
+              ["thesis", "Tese", 1500],
+              ["constraints", "Orientações que devem ser mantidas", 2000],
+            ] as const
+          ).map(([field, label, max]) => (
+            <label key={field}>
+              {label}
+              <textarea
+                maxLength={max}
+                value={decisions[field]}
+                onChange={(e) =>
+                  setDecisions({ ...decisions, [field]: e.target.value })
+                }
               />
-              Criar com IA
             </label>
-            <label className="check">
-              <input
-                type="radio"
-                name="creation"
-                checked={manual}
-                onChange={() => setManual(true)}
-              />
-              Escrever manualmente
-            </label>
-          </fieldset>
-        )}
+          ))}
+        </details>
         <details>
           <summary>Ferramentas de pesquisa</summary>
           <label className="check">
@@ -1348,38 +1408,25 @@ function ProjectDialog({
               checked={override}
               onChange={(e) => setOverride(e.target.checked)}
             />
-            Definir buscas para esta pauta
+            Personalizar nesta pauta
           </label>
           <ResearchChoices
             value={research}
             disabled={!override}
             onChange={setResearch}
           />
-          <p className="small muted">
-            O agente escolhe entre as ferramentas permitidas. A escrita manual e
-            a reescrita não exigem pesquisa.
-          </p>
         </details>
-        <div className="actions">
-          <button type="button" onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            className="primary"
-            disabled={
-              busy ||
-              !title.trim() ||
-              !channels.length ||
-              (override && !research.length)
-            }
-          >
-            {project
-              ? "Salvar pauta"
-              : manual
-                ? "Começar a escrever"
-                : "Criar pauta"}
-          </button>
-        </div>
+        <button
+          className="primary"
+          disabled={
+            busy ||
+            !title.trim() ||
+            !channels.length ||
+            (override && !research.length)
+          }
+        >
+          {project ? "Salvar pauta" : "Criar pauta"}
+        </button>
       </form>
     </Modal>
   );

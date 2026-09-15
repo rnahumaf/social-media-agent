@@ -14,10 +14,11 @@
     "start": "npm run build && electron .",
     "test": "node --test tests/*.test.cjs",
     "test:desktop": "electron tests/desktop-smoke.cjs",
-    "test:editorial-desktop": "electron tests/editorial-desktop.cjs && electron tests/p0-desktop.cjs",
+    "test:editorial-desktop": "electron tests/editorial-desktop.cjs && electron tests/p0-desktop.cjs && electron tests/p1-desktop.cjs",
     "package:win": "npm run build && install-electron && electron-builder --win portable --publish never",
     "package:mac": "npm run build && install-electron && electron-builder --mac zip --publish never",
-    "test:p0-desktop": "electron tests/p0-desktop.cjs"
+    "test:p0-desktop": "electron tests/p0-desktop.cjs",
+    "test:p1-desktop": "electron tests/p1-desktop.cjs"
   },
   "build": {
     "electronDist": "node_modules/electron/dist",

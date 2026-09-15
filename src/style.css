@@ -1699,3 +1699,128 @@ textarea {
     grid-column: 1 / -1;
   }
 }
+
+/* P1: one editor surface; secondary work stays contextual. */
+.compact-settings {
+  max-width: 880px;
+}
+.settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  background: #f7f8f5;
+  z-index: 2;
+  padding: 12px 0;
+}
+.settings-group {
+  border: 1px solid #dce3d2;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.settings-group > summary {
+  font-size: 18px;
+  font-weight: 600;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.settings-group details {
+  margin: 14px 0;
+}
+.context-tools {
+  max-width: 100%;
+}
+.context-tools > summary {
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px;
+}
+.context-tools > .actions {
+  flex-wrap: wrap;
+  padding: 8px;
+}
+.desktop-studio .card-workspace {
+  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr);
+}
+.appearance-panel {
+  grid-column: 1 / -1;
+}
+.appearance-panel > summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-weight: 600;
+}
+.appearance-panel .style-editor {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.card-render-error {
+  aspect-ratio: 4 / 5;
+  padding: 16px;
+  background: #fff1e4;
+  border: 1px solid #d4a06b;
+  border-radius: 6px;
+  color: #754715;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.card-thumbnails .card-render-error {
+  padding: 5px;
+  font-size: 9px;
+}
+.card-thumbnails .card-render-error p {
+  display: none;
+}
+.modal:has(.review-content),
+.modal:has(.chat) {
+  width: min(100%, 840px);
+}
+.modal .chat {
+  min-height: 250px;
+  max-height: 65vh;
+  padding: 0;
+}
+.modal .messages {
+  overflow: auto;
+  min-height: 100px;
+}
+.modal .content-pad {
+  padding: 16px 0;
+}
+.modal .review-cards {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+.modal .approval-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.modal .review-content .approval-row > div:first-child {
+  min-width: 0;
+}
+@media (max-width: 780px) {
+  .settings-heading {
+    flex-wrap: wrap;
+  }
+  .settings-group {
+    padding: 12px;
+  }
+  .modal .approval-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .context-tools > .actions {
+    justify-content: start;
+  }
+}
+@container (max-width: 540px) {
+  .desktop-studio .card-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .active-card-preview {
+    max-width: 240px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

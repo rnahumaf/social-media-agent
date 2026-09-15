@@ -67,6 +67,28 @@ app.whenReady().then(async () => {
       `(()=>{const found=[...document.querySelectorAll('button')].filter(b=>b.textContent.trim()===${JSON.stringify(text)});if(found.length!==1)throw Error('Button not unique: '+${JSON.stringify(text)});if(found[0].disabled)throw Error('Button disabled: '+${JSON.stringify(text)});found[0].click();})()`,
     );
   };
+  const closePanel = async () => {
+    await evaluate(
+      "document.querySelector('[aria-label=\"Fechar diálogo\"]')?.click()",
+    );
+    await wait("!document.querySelector('[role=dialog]')");
+  };
+  const checkpoint = async () => {
+    await evaluate("document.querySelector('.context-tools').open = true");
+    await click("Histórico");
+    await wait("!!document.querySelector('[role=dialog]')");
+    // Undoing a duplicate/reorder can restore the exact checkpoint; no redundant revision is needed.
+    if (
+      await evaluate(
+        "![...document.querySelectorAll('[role=dialog] button')].find(b=>b.textContent==='Criar revisão').disabled",
+      )
+    )
+      await click("Criar revisão");
+    await wait(
+      "document.querySelector('.editor-tools [role=status]').textContent === 'Revisão salva'",
+    );
+    await closePanel();
+  };
   const fill = async (selector, value) => {
     await evaluate(
       `(()=>{const el=document.querySelector(${JSON.stringify(selector)});if(!el)throw Error('Field missing');const proto=el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));el.blur();})()`,
@@ -122,7 +144,9 @@ app.whenReady().then(async () => {
     await click("Criar primeira pauta");
     await wait("!!document.querySelector('[role=dialog]')");
     assert.equal(
-      await evaluate("document.querySelector('input[name=creation]').checked"),
+      await evaluate(
+        "[...document.querySelectorAll('[role=dialog] label')].find(l=>l.textContent==='Blog').querySelector('input').checked",
+      ),
       true,
     );
     await fill(
@@ -134,9 +158,9 @@ app.whenReady().then(async () => {
       "Conteúdo fictício para aceite desktop.",
     );
     await evaluate(
-      "(()=>{const labels=[...document.querySelectorAll('[role=dialog] label')];for(const text of ['Blog','Instagram','Escrever manualmente']) labels.find(l=>l.textContent===text).querySelector('input').click();})()",
+      "(()=>{const labels=[...document.querySelectorAll('[role=dialog] label')];for(const text of ['Instagram']) labels.find(l=>l.textContent===text).querySelector('input').click();})()",
     );
-    await click("Começar a escrever");
+    await click("Criar pauta");
     await wait("!!document.querySelector('[role=tablist]')");
     let state = await call("state");
     assert.equal(state.unlocked, false);
@@ -186,9 +210,9 @@ app.whenReady().then(async () => {
       article + "\n\nEdição manual persistida.",
     );
     await wait(
-      "document.querySelector('.editor-tools [role=status]').textContent==='Alterações não salvas'",
+      "document.querySelector('.editor-tools [role=status]').textContent!=='Revisão salva'",
     );
-    await click("Salvar revisão");
+    await checkpoint();
     await wait(
       "document.querySelector('.editor-tools [role=status]').textContent==='Revisão salva'",
     );
@@ -202,9 +226,9 @@ app.whenReady().then(async () => {
     );
     await win.webContents.insertText(" Escrita no editor visual.");
     await wait(
-      "document.querySelector('.editor-tools [role=status]').textContent==='Alterações não salvas'",
+      "document.querySelector('.editor-tools [role=status]').textContent!=='Revisão salva'",
     );
-    await click("Salvar revisão");
+    await checkpoint();
     await wait(
       "document.querySelector('.editor-tools [role=status]').textContent==='Revisão salva'",
     );
@@ -286,7 +310,7 @@ app.whenReady().then(async () => {
       true,
     );
     await click("Descartar sugestão");
-    await click("Salvar revisão");
+    await checkpoint();
     await wait(
       "document.querySelector('.editor-tools [role=status]').textContent==='Revisão salva'",
     );
@@ -297,7 +321,6 @@ app.whenReady().then(async () => {
     );
     await capture("rewrite-dialog");
     await click("Aplicar sugestão");
-    await click("Salvar revisão");
     await wait(
       "document.querySelector('.editor-tools [role=status]').textContent==='Revisão salva'",
     );
@@ -321,11 +344,12 @@ app.whenReady().then(async () => {
     await wait(
       "!!document.querySelector('input[aria-label=\"Zoom da imagem\"]')",
     );
+    await evaluate("document.querySelector('.appearance-panel').open = true");
     await fill('[aria-label="Cor de fundo"]', "#e8eef4");
     await fill('[aria-label="Tamanho da fonte"]', "1.15");
     await fill('[aria-label="Zoom da imagem"]', "1.5");
     await fill('[aria-label="Horizontal da imagem"]', "25");
-    await click("Salvar revisão");
+    await checkpoint();
     await wait(
       "document.querySelector('.editor-tools [role=status]').textContent==='Revisão salva'",
     );
@@ -362,40 +386,47 @@ app.whenReady().then(async () => {
     await wait(
       "document.querySelectorAll('.card-thumbnails button').length===2",
     );
-    await click("Salvar revisão");
+    await checkpoint();
     await wait(
       "document.querySelector('.editor-tools [role=status]').textContent==='Revisão salva'",
     );
-    await click("Conhecimento");
+    await click("Configurações");
     await wait("!!document.querySelector('.knowledge-panel')");
+    await evaluate("document.querySelector('.knowledge-panel').open = true");
     await fill(
       ".knowledge-panel textarea",
       "Prefiro explicações concretas e parágrafos curtos.",
     );
-    await click("Salvar conhecimento");
+    await click("Salvar configurações");
     await wait(
-      "document.querySelector('.knowledge-panel [role=status]')?.textContent==='Conhecimento salvo.'",
+      "document.querySelector('.compact-settings [role=status]')?.textContent==='Configurações salvas.'",
     );
     assert.match(
       (await call("state")).knowledge.general,
       /explicações concretas/,
     );
-    await click("Modelos e conexões");
+    await evaluate("document.querySelector('.research-settings').open = true");
     await wait("!!document.querySelector('.research-settings')");
     await evaluate(
       "[...document.querySelectorAll('.research-settings label')].find(l=>l.textContent==='PubMed').querySelector('input').click()",
     );
-    await click("Salvar ferramentas de pesquisa");
-    await wait("!document.querySelector('.research-settings button').disabled");
-    assert.deepEqual((await call("state")).settings.research, ["web"]);
     await click("Salvar configurações");
     await wait(
-      "![...document.querySelectorAll('button')].find(b=>b.textContent==='Salvar configurações').disabled",
+      "document.querySelector('.compact-settings [role=status]')?.textContent==='Configurações salvas.'",
+    );
+    assert.deepEqual((await call("state")).settings.research, ["web"]);
+    await fill(
+      '.compact-settings input[list="model-catalog"]',
+      "fixture-updated",
+    );
+    await click("Salvar configurações");
+    await wait(
+      "document.querySelector('.compact-settings [role=status]')?.textContent==='Configurações salvas.'",
     );
     assert.deepEqual((await call("state")).settings.research, ["web"]);
     await evaluate("document.querySelector('.projects button').click()");
     await wait("!!document.querySelector('[role=tablist]')");
-    await click("Revisar e publicar");
+    await click("Publicar");
     await wait("!!document.querySelector('.review-content .blog-preview')");
     assert.ok(
       await evaluate(
@@ -404,23 +435,26 @@ app.whenReady().then(async () => {
     );
     win.setContentSize(780, 640);
     await capture("review-780");
+    await closePanel();
     await click("Blog");
     await capture("blog-780");
     win.webContents.setZoomFactor(1.25);
     await capture("blog-780-zoom125");
     await click("Instagram");
     await capture("instagram-780-zoom125");
+    await evaluate("document.querySelector('.appearance-panel').open = true");
     await evaluate(
       "document.querySelector('.style-editor').scrollIntoView({block:'center'})",
     );
     await capture("instagram-fields-780-zoom125");
     win.webContents.setZoomFactor(1);
     await capture("instagram-780");
-    await click("Revisar e publicar");
+    await click("Publicar");
     await evaluate(
       "document.querySelector('.publish-destinations').scrollIntoView({block:'center'})",
     );
     await capture("publish-780");
+    await closePanel();
     await click("Blog");
     await evaluate("window.scrollTo(0,0)");
     win.setContentSize(1440, 940);
@@ -451,26 +485,30 @@ app.whenReady().then(async () => {
     await click("Markdown");
     await fill('[aria-label="Artigo em Markdown"]', "# Rascunho não salvo");
     await wait(
-      "document.querySelector('.editor-tools [role=status]').textContent==='Alterações não salvas'",
+      "document.querySelector('.editor-tools [role=status]').textContent!=='Revisão salva'",
     );
-    const closePrevented = new Promise((resolve, reject) => {
+    // P1 close flushes the draft rather than asking the user to discard it.
+    app.removeAllListeners("window-all-closed");
+    const closed = new Promise((resolve, reject) => {
       const timer = setTimeout(
-        () => reject(Error("Unsaved-close dialog was not shown")),
+        () => reject(Error("Draft flush did not finish before closing")),
         10000,
       );
-      win.webContents.once("will-prevent-unload", () => {
+      win.once("closed", () => {
         clearTimeout(timer);
         resolve();
       });
     });
     win.close();
-    await closePrevented;
-    assert.equal(closePrompts, 1);
-    assert.equal((await call("state")).projects[0].revisions.length, before);
+    await closed;
+    assert.equal(closePrompts, 0);
+    const restored = JSON.parse(
+      fs.readFileSync(path.join(chosen, "drafts", id + ".json"), "utf8"),
+    );
+    assert.equal(restored.content.article, "# Rascunho não salvo");
     console.log(
       "Editorial desktop acceptance passed: manual + visual editing, rewrite races, images/styles, cards, knowledge, selected previews, portable backup, 780×640 and 1440×940 with 125% zoom.",
     );
-    win.destroy();
     app.quit();
   } catch (error) {
     console.error(error);

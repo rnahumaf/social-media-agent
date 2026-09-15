@@ -6,11 +6,11 @@ Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e apr
 
 Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.4](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.4):
 
-| Sistema | Download |
-| --- | --- |
-| Windows 10/11, 64 bits | [Social Media Agent 0.1.0-beta.4 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent.0.1.0-beta.4.exe) |
+| Sistema                                                          | Download                                                                                                                                                                           |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.4 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent.0.1.0-beta.4.exe)                 |
 | macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.4 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel | [Social Media Agent 0.1.0-beta.4 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-mac.zip) |
+| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.4 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-mac.zip)               |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 
@@ -92,3 +92,9 @@ WordPress.com também oferece conexão OAuth pelo botão **Conectar WordPress.co
 Para começar, siga o [guia de primeiro acesso](docs/first-access.md). Cada pessoa cria seu próprio workspace e conecta suas próprias contas.
 
 A formulação de buscas usa termos livres e operadores do PubMed conforme a [documentação oficial](https://pubmed.ncbi.nlm.nih.gov/help/). O planejamento usa o modelo escolhido para o pesquisador e seu consumo é registrado nas execuções.
+
+## Fluxo P1
+
+A produção usa rascunhos automáticos e revisões separadas. Os rascunhos são preservados na pasta portável; a navegação e o fechamento normal aguardam o salvamento. Fontes, conversa, histórico e exportação ficam em **Ferramentas da pauta**. **Publicar** prepara a revisão e oferece aprovação e envio no mesmo fluxo. **Gerar com IA** permite adaptar um artigo salvo sem repetir pesquisa.
+
+Configurações reúne um modelo padrão (ou modelos por função), voz e destinos. Os cards compartilham cache de renderização e exibem erros individualmente. Consulte [a documentação P1](docs/p1-validation.md) para comportamento, testes e limites.

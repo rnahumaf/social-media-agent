@@ -57,28 +57,20 @@ function allows(p, destination) {
     channels(p).includes(destination === "instagram" ? "instagram" : "blog")
   );
 }
-function knowledgeFor(state, role) {
-  const k = state.knowledge || { general: state.memory || "" };
-  return [
-    k.general || state.memory,
-    role === "writer" ? k.blog : role === "social" ? k.instagram : "",
-    k.examples &&
-      `Exemplos de estilo (não são fontes factuais):\n${k.examples}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
 function scopedContext(p, role, artifacts = {}, previous) {
   const base = {
     title: p.title,
     brief: p.brief,
+    decisions: require("./context.cjs").decisions(p),
     sources: artifacts.sources || p.sources,
     dossier: artifacts.dossier || "",
   };
   // A conversa livre é demanda; respostas de agentes nunca voltam como instruções.
-  base.conversation = p.messages
-    .filter((m) => !m.internal && !m.agent && (!m.target || m.target === role))
-    .slice(-20);
+  base.conversation = require("./context.cjs").history(
+    p.messages,
+    role,
+    p.title + " " + p.brief,
+  );
   if (role === "writer")
     return {
       ...base,
@@ -118,6 +110,6 @@ module.exports = {
   defaultStyle,
   channels,
   allows,
-  knowledgeFor,
+  knowledgeFor: require("./context.cjs").profile,
   scopedContext,
 };

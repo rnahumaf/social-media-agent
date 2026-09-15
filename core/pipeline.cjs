@@ -5,6 +5,7 @@ const { z } = require("zod");
 const socialOutput = require("./social-output.cjs");
 const { systemFor } = require("./editorial-prompts.cjs");
 const editorial = require("./editorial-model.cjs");
+const contextPolicy = require("./context.cjs");
 const { reviewFingerprint } = require("./provenance.cjs");
 const isDemo = (w) => w.testMode && w.state.settings.demo;
 function generatedContent(w, p, selected, content) {
@@ -114,7 +115,11 @@ function assertReady(w, selectedRoles = roles) {
       `Escolha um modelo para: ${missing.map((role) => roleNames[role]).join(", ")}.`,
     );
 }
-function beginSession(p, { resume, instruction, targets }, save) {
+function beginSession(
+  p,
+  { resume, instruction, targets, mode = "research" },
+  save,
+) {
   if (typeof instruction !== "string" || instruction.length > 10000)
     throw Error("A orientação é muito longa.");
   p.sessions ||= [];
@@ -130,11 +135,24 @@ function beginSession(p, { resume, instruction, targets }, save) {
     : {
         id: crypto.randomUUID(),
         status: "running",
-        cursor: "search",
+        mode,
+        cursor:
+          mode === "adapt"
+            ? targets.includes("blog")
+              ? "writer"
+              : "social"
+            : "search",
         startedAt: now(),
         updatedAt: now(),
         events: [],
-        artifacts: {},
+        artifacts:
+          mode === "adapt"
+            ? {
+                article: current(p).article,
+                sources: structuredClone(current(p).sources || []),
+                searches: structuredClone(current(p).research?.searches || []),
+              }
+            : {},
         channels: targets || editorial.channels(p),
         selectedProjectChannels: editorial.channels(p),
         ...(current(p) ? { baseRevisionId: current(p).id } : {}),
@@ -142,12 +160,16 @@ function beginSession(p, { resume, instruction, targets }, save) {
   if (!resume) {
     p.sessions.push(session);
     p.query = "";
-    p.sources = [];
+    p.sources =
+      mode === "adapt" ? structuredClone(session.artifacts.sources) : [];
     p.approval = null;
     addEvent(session, {
       kind: "status",
       title: "Execução iniciada",
-      detail: "O histórico será salvo no workspace após cada etapa.",
+      detail:
+        mode === "adapt"
+          ? "Reutilizando o material e suas fontes, sem nova pesquisa."
+          : "O histórico será salvo no workspace após cada etapa.",
     });
   } else {
     session.status = "running";
@@ -200,6 +222,10 @@ async function research(w, p, session, signal, save) {
         key: w.secrets?.openrouter,
         model: step.model,
         system: searchInstructions,
+        maxTokens:
+          contextPolicy.outputLimits.search *
+          (session.artifacts.partial?.phase === "search" ? 2 : 1),
+        allowPartial: true,
         messages: [
           {
             role: "user",
@@ -208,9 +234,12 @@ async function research(w, p, session, signal, save) {
               brief: p.brief,
               memory: editorial.knowledgeFor(w.state, "researcher"),
               allowedProviders: allowed,
-              conversation: p.messages
-                .filter((m) => !m.internal && !m.agent)
-                .slice(-20),
+              decisions: contextPolicy.decisions(p),
+              conversation: contextPolicy.history(
+                p.messages,
+                "researcher",
+                p.title + " " + p.brief,
+              ),
               ...(previousQuery
                 ? {
                     previousQuery,
@@ -225,6 +254,8 @@ async function research(w, p, session, signal, save) {
       });
       step.model = result.model;
       step.usage = result.usage;
+      if (result.contextUsage) step.contextUsage = result.contextUsage;
+      if (result.finishReason) step.finishReason = result.finishReason;
       session.artifacts.responses ||= [];
       session.artifacts.responses.push({
         id: step.id,
@@ -241,6 +272,19 @@ async function research(w, p, session, signal, save) {
           ? `${result.usage.total_tokens} tokens informados pelo modelo.`
           : "Plano recebido para validação.",
       });
+      if (result.finishReason === "length") {
+        session.artifacts.partial = {
+          role: "researcher",
+          phase: "search",
+          content: result.content,
+          usage: result.usage,
+          at: now(),
+        };
+        save();
+        throw Error(
+          "O plano de pesquisa atingiu o limite. A resposta e o consumo foram preservados; retome para tentar com um limite maior.",
+        );
+      }
       signal?.throwIfAborted();
       let plan;
       try {
@@ -446,13 +490,18 @@ async function generate(
   let article = session.artifacts.article || "";
   let social = session.artifacts.social;
   const selected = session.channels || editorial.channels(p);
-  const flow = activeRoles({ channels: selected });
+  const flow = activeRoles({ channels: selected }).filter(
+    (role) => session.mode !== "adapt" || role !== "researcher",
+  );
   const start = Math.max(0, flow.indexOf(session.cursor));
   for (const role of flow.slice(start)) {
     signal?.throwIfAborted();
-    const previousAttempt = [...(session.artifacts.responses || [])]
+    const previousResponse = [...(session.artifacts.responses || [])]
       .reverse()
-      .find((response) => response.role === role)?.content;
+      .find(
+        (response) => response.role === role && response.phase !== "search",
+      );
+    const previousAttempt = previousResponse?.content;
     const recoveredSocial =
       role === "social" && reuseSavedSocial && previousAttempt
         ? socialOutput.fitLengths(previousAttempt)
@@ -464,7 +513,7 @@ async function generate(
       isDemo(w) ? "Demonstração local" : w.state.settings.models[role],
       save,
     );
-    const context = JSON.stringify({
+    const context = contextPolicy.prepareContext({
       ...editorial.scopedContext(
         { ...p, channels: selected },
         role,
@@ -516,7 +565,16 @@ async function generate(
           : await providers.complete({
               key: w.secrets?.openrouter,
               model: run.model,
-              system: systemFor(role, editorial.knowledgeFor(w.state, role)),
+              system:
+                systemFor(role, editorial.knowledgeFor(w.state, role)) +
+                (session.mode === "adapt"
+                  ? "\nAdapte somente o material existente. Não acrescente fatos nem alegue nova pesquisa."
+                  : ""),
+              maxTokens: Math.min(
+                9000,
+                contextPolicy.outputLimits[role] * (previousResponse ? 1.5 : 1),
+              ),
+              allowPartial: true,
               messages: [{ role: "user", content: context }],
               ...(role === "social"
                 ? { responseFormat: socialOutput.responseFormat }
@@ -525,6 +583,8 @@ async function generate(
             });
       run.model = result.model;
       run.usage = result.usage;
+      if (result.contextUsage) run.contextUsage = result.contextUsage;
+      if (result.finishReason) run.finishReason = result.finishReason;
       session.artifacts.responses ||= [];
       session.artifacts.responses.push({
         id: run.id,
@@ -538,6 +598,18 @@ async function generate(
         title: "Resposta do modelo salva",
         detail: "O conteúdo foi preservado antes da validação da etapa.",
       });
+      if (result.finishReason === "length") {
+        session.artifacts.partial = {
+          role,
+          content: result.content,
+          at: now(),
+          usage: result.usage,
+        };
+        save();
+        throw Error(
+          "A resposta atingiu o limite. O texto parcial e o consumo foram salvos; retomar aumentará o limite desta etapa.",
+        );
+      }
       if (role === "researcher") {
         dossier = result.content;
         session.artifacts.dossier = dossier;
@@ -620,7 +692,14 @@ async function generate(
 async function run(
   w,
   id,
-  { signal, notify = () => {}, resume = false, instruction = "", targets } = {},
+  {
+    signal,
+    notify = () => {},
+    resume = false,
+    instruction = "",
+    targets,
+    mode = "research",
+  } = {},
 ) {
   const p = w.project(id);
   const selected = resume
@@ -628,7 +707,17 @@ async function run(
     : editorial.channelsSchema.parse(targets || editorial.channels(p));
   if (selected.some((channel) => !editorial.channels(p).includes(channel)))
     throw Error("Selecione estes canais na pauta antes de gerar.");
-  assertReady(w, activeRoles({ channels: selected }));
+  mode = resume ? p.sessions?.at(-1)?.mode || "research" : mode;
+  if (!["research", "adapt"].includes(mode))
+    throw Error("Modo de produção inválido.");
+  if (mode === "adapt" && !current(p)?.article.trim())
+    throw Error("Escreva ou gere um artigo antes de adaptar o material.");
+  assertReady(
+    w,
+    activeRoles({ channels: selected }).filter(
+      (role) => mode !== "adapt" || role !== "researcher",
+    ),
+  );
   if (
     resume &&
     p.sessions?.at(-1)?.selectedProjectChannels &&
@@ -649,7 +738,7 @@ async function run(
   };
   const session = beginSession(
     p,
-    { resume, instruction, targets: selected },
+    { resume, instruction, targets: selected, mode },
     save,
   );
   try {

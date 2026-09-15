@@ -60,6 +60,8 @@ async function rewrite(w, payload, signal) {
       key: w.secrets.openrouter,
       model: run.model,
       signal,
+      allowPartial: true,
+      maxTokens: input.target === "article" ? 6000 : 2200,
       system: `${naturalWriting}\nReescreva somente ${input.target === "article" ? "o artigo para BLOG em Markdown; não inclua legenda, cards nem hashtags" : input.target === "caption" ? "a legenda do INSTAGRAM, com até 2200 caracteres" : "o card do INSTAGRAM, retornando JSON com title de até 90 e body de até 420 caracteres"}. Use apenas o conteúdo fornecido. Não invente fontes ou acrescente fatos. Não faça pesquisa externa.\nPreferências do autor:\n${knowledgeFor(w.state, role)}`,
       messages: [
         {
@@ -67,6 +69,14 @@ async function rewrite(w, payload, signal) {
           content: JSON.stringify({
             text: original,
             instruction: input.instruction,
+            brief: p.brief,
+            decisions: require("./context.cjs").decisions(p),
+            conversation: require("./context.cjs").history(
+              p.messages,
+              role,
+              input.instruction,
+              900,
+            ),
           }),
         },
       ],
@@ -92,6 +102,23 @@ async function rewrite(w, payload, signal) {
         : {}),
     });
     signal?.throwIfAborted();
+    run.usage = result.usage;
+    if (result.contextUsage) run.contextUsage = result.contextUsage;
+    if (result.finishReason) run.finishReason = result.finishReason;
+    if (result.finishReason === "length") {
+      p.messages.push({
+        role: "assistant",
+        agent: role,
+        internal: true,
+        partial: true,
+        target: input.target,
+        content: result.content,
+        at: new Date().toISOString(),
+      });
+      throw Error(
+        "A reescrita atingiu o limite. O texto parcial foi salvo no histórico; reduza o trecho para tentar novamente.",
+      );
+    }
     const value =
       input.target === "card"
         ? cardSchema

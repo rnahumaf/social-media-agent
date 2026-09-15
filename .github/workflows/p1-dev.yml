@@ -1,0 +1,32 @@
+name: P1 development validation
+on:
+  push:
+    branches: [fix/p1-editorial-efficiency]
+    paths: [.github/workflows/p1-dev.yml, scripts/p1.patch]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx install-electron
+      - name: Apply staged P1 changes
+        run: |
+          if [ -f scripts/p1.patch ]; then git apply --check scripts/p1.patch && git apply scripts/p1.patch; fi
+      - run: npm test
+      - run: npm run build
+      - name: Pack isolated development environment
+        if: always()
+        run: tar -czf /tmp/p1-env.tar.gz --exclude=.git --exclude=release .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p1-environment
+          path: /tmp/p1-env.tar.gz
+          retention-days: 1

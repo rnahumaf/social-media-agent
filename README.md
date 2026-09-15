@@ -1,16 +1,16 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.4 — versão pública de testes.**
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.5 — versão pública de testes.**
 
 ## Experimentar
 
-Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.4](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.4):
+Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.5](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.5):
 
 | Sistema                                                          | Download                                                                                                                                                                           |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.4 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent.0.1.0-beta.4.exe)                 |
-| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.4 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.4 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-mac.zip)               |
+| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.5 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.5/Social.Media.Agent.0.1.0-beta.5.exe)                 |
+| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.5 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.5/Social.Media.Agent-0.1.0-beta.5-arm64-mac.zip) |
+| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.5 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.5/Social.Media.Agent-0.1.0-beta.5-mac.zip)               |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 

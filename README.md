@@ -34,6 +34,7 @@ npm start
 - Saída estruturada do carrossel com JSON Schema, correção automática e ajuste local de último recurso para limites de 90 e 420 caracteres. A resposta original permanece no histórico.
 - PubMed E-utilities e web aberta por OpenRouter/Exa. O pesquisador escolhe entre ferramentas permitidas por workspace ou pauta. Consultas, fontes e tipo de acesso ficam registrados; ausência de fontes interrompe a geração.
 - Área **Conhecimento** para preferências gerais, orientações por canal e exemplos de escrita, salvos no workspace.
+- Skill editorial `rn-natural-writing` incluída no runtime e aplicada à geração e à reescrita dos artigos, sem depender da instalação local do desenvolvedor.
 - Editor visual de blog com Markdown e prévia formatada. Formatação antiga não suportada permanece editável em Markdown, sem converter o original ao abrir.
 - Legenda e cards manuais com inclusão, duplicação, remoção e ordenação. Reescrita com IA gera uma proposta para comparar, aplicar ou descartar; alterações durante a chamada impedem a aplicação sobre o texto modificado.
 - Imagens locais JPEG, PNG e WebP, enquadramento, três modelos visuais, cores, família e tamanho da fonte e assinatura. Padrões do autor e estilo de cada revisão ficam salvos.

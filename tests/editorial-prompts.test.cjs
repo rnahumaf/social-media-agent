@@ -5,11 +5,16 @@ const {
   systemFor,
   chatInstruction,
   naturalWriting,
+  naturalWritingSkill,
 } = require("../core/editorial-prompts.cjs");
 
 test("redator recebe por padrão um contrato completo de escrita natural", () => {
   const prompt = systemFor("writer", "Prefira exemplos veterinários.");
 
+  assert.equal(naturalWritingSkill, "rn-natural-writing");
+  assert.match(prompt, /^\[Skill editorial ativa: rn-natural-writing\]/);
+  assert.match(prompt, /Identifique público, propósito, voz e extensão/);
+  assert.match(prompt, /Preserve termos técnicos, fontes, números/);
   assert.match(prompt, /Defina uma tese central/);
   assert.match(prompt, /Cada parágrafo deve acrescentar evidência/);
   assert.match(prompt, /Não use travessões como recurso estilístico/);

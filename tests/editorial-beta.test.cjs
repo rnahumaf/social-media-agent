@@ -464,6 +464,7 @@ test("rewrite is a proposal scoped to the selected text and preserves all revisi
   providers.complete = async (input) => {
     assert.ok(!JSON.stringify(input).includes("MARCADOR_PRIVADO_SOCIAL"));
     assert.ok(!input.webSearch);
+    assert.match(input.system, /Skill editorial ativa: rn-natural-writing/);
     assert.match(input.system, /Parágrafos curtos/);
     return completion("Texto melhorado", input.model);
   };

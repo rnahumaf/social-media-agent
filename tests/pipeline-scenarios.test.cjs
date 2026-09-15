@@ -151,6 +151,7 @@ test("editorial pipeline completes a matrix of valid, malformed and oversized so
         usage: {},
       };
     if (input.model === "fixture/writer") {
+      assert.match(input.system, /Skill editorial ativa: rn-natural-writing/);
       assert.match(input.system, /Defina uma tese central/);
       assert.match(input.system, /Não use travessões como recurso estilístico/);
       assert.match(input.system, /Não acrescente avisos defensivos/);

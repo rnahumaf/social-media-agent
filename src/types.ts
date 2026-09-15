@@ -13,6 +13,7 @@ export type CardStyle = {
   textColor: string;
   accent: string;
   font: "sans" | "serif";
+  fontScale?: number;
   signature: string;
 };
 export type CardImageRef = {

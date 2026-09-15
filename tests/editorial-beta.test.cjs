@@ -96,6 +96,7 @@ test("Instagram-only manual content needs no article and media approval survives
       ...defaultStyle,
       layout: "split",
       font: "serif",
+      fontScale: 1.15,
       signature: "Autor",
     },
   });
@@ -105,6 +106,7 @@ test("Instagram-only manual content needs no article and media approval survives
   const copy = await Workspace.open(path.join(root, "copy"));
   try {
     assertApproved(copy.project(p.id), copy.state.settings, "instagram");
+    assert.equal(current(copy.project(p.id)).style.fontScale, 1.15);
     const actual = await approvedImages(
       copy,
       copy.project(p.id),

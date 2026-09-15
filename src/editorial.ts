@@ -6,6 +6,7 @@ export const defaultStyle: CardStyle = {
   textColor: "#394e46",
   accent: "#226453",
   font: "sans",
+  fontScale: 1,
   signature: "ESTÚDIO EDITORIAL",
 };
 export const knowledgeOf = (s: State): Knowledge =>

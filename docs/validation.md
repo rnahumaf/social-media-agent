@@ -1,16 +1,16 @@
-# Validação da beta — 13/09/2026
+# Validação da beta — 14/09/2026
 
 ## Ajustes editoriais do beta desktop — código atual
 
-O núcleo passou em 75 testes. O build TypeScript/Vite e os dois smokes Electron passaram no Windows: `npm run test:desktop` e `npm run test:editorial-desktop`. O build informa o tamanho do bundle do editor e ignora uma diretiva `use client` do Tiptap; não houve erro de compilação.
+O núcleo passou em 76 testes. O build TypeScript/Vite e os dois smokes Electron passaram no Windows: `npm run test:desktop` e `npm run test:editorial-desktop`. O build informa o tamanho do bundle do editor e ignora uma diretiva `use client` do Tiptap; não houve erro de compilação.
 
-As regressões cobrem escopo de blog e Instagram, payload do Blogger contendo só o artigo, geração social sem redator, retomada sem sobrescrever edições, fontes da nova revisão, preferências migradas e demonstrações antigas bloqueadas. Aprovação do blog independe de cards inválidos; Instagram exige legenda e cards. Imagens, estilos, título e destino entram na verificação, e mídias adulteradas impedem envio. Os testes existentes de cofre, portabilidade e resultado externo incerto continuam passando.
+As regressões cobrem escopo de blog e Instagram, payload do Blogger contendo só o artigo, geração social sem redator, retomada sem sobrescrever edições, fontes da nova revisão, preferências migradas e demonstrações antigas bloqueadas. Aprovação do blog independe de cards inválidos; Instagram exige legenda e cards. Imagens, estilos, título e destino entram na verificação, e mídias adulteradas impedem envio. O tamanho da fonte altera o JPEG e persiste na cópia portável; estilos antigos continuam equivalentes a 100% sem mudar o formato usado no hash de aprovação. Os testes existentes de cofre, portabilidade e resultado externo incerto continuam passando.
 
 O aceite usa Electron e IPC reais com textos, credenciais, imagens e respostas externas fictícios em pastas temporárias. Ele cria uma pauta manual pela interface sem chave, edita e reabre Markdown e editor visual, preserva tabela e lista de tarefas antigas, aplica e descarta propostas, testa edição durante reescrita, importa imagem, salva enquadramento e estilo, duplica/ordena/remove cards, salva conhecimento e ferramentas de pesquisa e reabre uma cópia portável. O cancelamento do fechamento conserva o workspace e o rascunho não salvo.
 
-Inspeção visual exclusivamente desktop em áreas de conteúdo de 780 × 640 e 1440 × 940, também a 125% de zoom. Foram conferidos editores, estados vazios, prévia, comparação de reescrita, rolagem e ações de aprovação. O teste verifica ausência de rolagem horizontal no documento e contenção do foco no diálogo. As imagens usadas nas capturas são fixtures; nenhum dado de usuário foi registrado.
+Inspeção visual exclusivamente desktop em áreas de conteúdo de 780 × 640 e 1440 × 940, também a 125% de zoom. Foram conferidos editores, estados vazios, prévia, comparação de reescrita, controle de tamanho da fonte em 115%, rolagem e ações de aprovação. O teste verifica ausência de rolagem horizontal no documento e contenção do foco no diálogo. As imagens usadas nas capturas eram fixtures temporárias e foram descartadas; nenhum dado de usuário foi registrado.
 
-Esta alteração não valida buscas pagas no OpenRouter/Exa nem publicações reais nos provedores. O contrato externo foi conferido na documentação e testado com respostas controladas. Transferência entre máquinas Windows/macOS e aparência das fontes no macOS continuam pendentes; uma mudança nos JPEGs exige nova aprovação. Os ajustes permanecem no código local, sem nova release.
+Esta alteração não valida buscas pagas no OpenRouter/Exa nem publicações reais nos provedores. O contrato externo foi conferido na documentação e testado com respostas controladas. Transferência entre máquinas Windows/macOS e aparência das fontes no macOS continuam pendentes; uma mudança nos JPEGs exige nova aprovação.
 
 ## Acesso público aos provedores
 

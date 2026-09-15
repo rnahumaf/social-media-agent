@@ -6,6 +6,7 @@ const test = require("node:test"),
 const { Workspace, current, assertApproved } = require("../core/workspace.cjs");
 const { run } = require("../core/pipeline.cjs");
 const { svgCard, cardLayout } = require("../core/render.cjs");
+const { defaultStyle, styleSchema } = require("../core/editorial-model.cjs");
 const { wordpress, httpsBase } = require("../core/publish.cjs");
 async function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "editorial-test-"));
@@ -250,6 +251,22 @@ test("render adapts typography for a valid card near the content limit", async (
   const metadata = await sharp(bytes).metadata();
   assert.equal(metadata.width, 1080);
   assert.equal(metadata.height, 1350);
+});
+test("font scale changes typography while legacy styles keep their approval shape", () => {
+  const card = { title: "Título", body: "Texto do card." };
+  const legacy = { ...defaultStyle };
+  delete legacy.fontScale;
+  assert.deepEqual(styleSchema.parse(legacy), legacy);
+  const smaller = cardLayout(card, { ...defaultStyle, fontScale: 0.85 });
+  const standard = cardLayout(card, defaultStyle);
+  assert.deepEqual(cardLayout(card, legacy), standard);
+  const larger = cardLayout(card, { ...defaultStyle, fontScale: 1.15 });
+  assert.ok(smaller.titleSize < standard.titleSize);
+  assert.ok(larger.titleSize > standard.titleSize);
+  assert.match(
+    svgCard(card, 0, 1, { ...defaultStyle, fontScale: 1.15 }),
+    new RegExp(`font-size="${larger.titleSize}"`),
+  );
 });
 test("publication cannot bypass human approval", async (t) => {
   const { w } = await fixture(t);

@@ -318,6 +318,7 @@ app.whenReady().then(async () => {
       "!!document.querySelector('input[aria-label=\"Zoom da imagem\"]')",
     );
     await fill('[aria-label="Cor de fundo"]', "#e8eef4");
+    await fill('[aria-label="Tamanho da fonte"]', "1.15");
     await fill('[aria-label="Zoom da imagem"]', "1.5");
     await fill('[aria-label="Horizontal da imagem"]', "25");
     await click("Salvar revisão");
@@ -333,6 +334,7 @@ app.whenReady().then(async () => {
       state.projects[0].revisions.at(-1).style.background,
       "#e8eef4",
     );
+    assert.equal(state.projects[0].revisions.at(-1).style.fontScale, 1.15);
     assert.equal(state.projects[0].revisions.at(-1).cards[0].image.zoom, 1.5);
     await wait(
       "document.querySelector('.selected-card-preview img')?.complete",
@@ -405,7 +407,7 @@ app.whenReady().then(async () => {
     await click("Instagram");
     await capture("instagram-780-zoom125");
     await evaluate(
-      "document.querySelector('.card-fields').scrollIntoView({block:'center'})",
+      "document.querySelector('.style-editor').scrollIntoView({block:'center'})",
     );
     await capture("instagram-fields-780-zoom125");
     win.webContents.setZoomFactor(1);

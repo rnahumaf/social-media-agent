@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   Plus,
   Trash2,
@@ -59,6 +59,7 @@ export function CardPreviews({
     };
   }, [serialized, revision.id, api, onRendered]);
   const style = revision.style || defaultStyle;
+  const fontScale = style.fontScale ?? 1;
   return (
     <>
       <div
@@ -85,7 +86,8 @@ export function CardPreviews({
                 background: style.background,
                 color: style.textColor,
                 fontFamily: style.font === "serif" ? "Georgia" : "Arial",
-              }}
+                "--card-font-scale": fontScale,
+              } as CSSProperties}
             >
               <small>{style.signature}</small>
               <h3 style={{ color: style.titleColor }}>{card.title}</h3>
@@ -144,7 +146,8 @@ export default function CardEditor({
     [revision.cards.length],
   );
   const card = revision.cards[index],
-    style = revision.style || defaultStyle;
+    style = revision.style || defaultStyle,
+    fontScale = style.fontScale ?? 1;
   const changeCard = (changes: Partial<Card>) =>
     onChange({
       ...revision,
@@ -373,6 +376,23 @@ export default function CardEditor({
                 <option value="sans">Sem serifa</option>
                 <option value="serif">Com serifa</option>
               </select>
+            </label>
+            <label className="font-size-control">
+              <span>
+                Tamanho da fonte
+                <output>{Math.round(fontScale * 100)}%</output>
+              </span>
+              <input
+                type="range"
+                aria-label="Tamanho da fonte"
+                min="0.85"
+                max="1.15"
+                step="0.05"
+                value={fontScale}
+                onChange={(e) =>
+                  updateStyle({ fontScale: Number(e.target.value) })
+                }
+              />
             </label>
             <label>
               Assinatura

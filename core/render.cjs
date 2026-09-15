@@ -75,7 +75,16 @@ function cardLayout(card, style) {
     throw Error(
       "O card precisa ter título de até 90 caracteres e texto de até 420 caracteres.",
     );
-  for (const layout of layouts) {
+  const scale = style?.fontScale ?? 1;
+  for (const base of layouts) {
+    const layout = {
+      titleSize: Math.round(base.titleSize * scale),
+      titleWidth: Math.max(1, Math.floor(base.titleWidth / scale)),
+      titleLineHeight: Math.round(base.titleLineHeight * scale),
+      bodySize: Math.round(base.bodySize * scale),
+      bodyWidth: Math.max(1, Math.floor(base.bodyWidth / scale)),
+      bodyLineHeight: Math.round(base.bodyLineHeight * scale),
+    };
     const title = wrap(card.title, layout.titleWidth);
     const body = wrap(card.body, layout.bodyWidth);
     const bodyY =

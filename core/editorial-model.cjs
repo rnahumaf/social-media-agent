@@ -22,6 +22,7 @@ const defaultStyle = Object.freeze({
   textColor: "#394e46",
   accent: "#226453",
   font: "sans",
+  fontScale: 1,
   signature: "ESTÚDIO EDITORIAL",
 });
 const color = z.string().regex(/^#[0-9a-f]{6}$/i);
@@ -32,6 +33,7 @@ const styleSchema = z.object({
   textColor: color,
   accent: color,
   font: z.enum(["sans", "serif"]),
+  fontScale: z.number().min(0.85).max(1.15).optional(),
   signature: z.string().max(60),
 });
 const imageSchema = z.object({

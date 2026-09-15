@@ -1,16 +1,16 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.3 — versão pública de testes.**
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.4 — versão pública de testes.**
 
 ## Experimentar
 
-Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.3](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.3):
+Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.4](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.4):
 
 | Sistema | Download |
 | --- | --- |
-| Windows 10/11, 64 bits | [Social Media Agent 0.1.0-beta.3 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.3/Social.Media.Agent.0.1.0-beta.3.exe) |
-| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.3 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.3/Social.Media.Agent-0.1.0-beta.3-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel | [Social Media Agent 0.1.0-beta.3 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.3/Social.Media.Agent-0.1.0-beta.3-mac.zip) |
+| Windows 10/11, 64 bits | [Social Media Agent 0.1.0-beta.4 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent.0.1.0-beta.4.exe) |
+| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.4 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-arm64-mac.zip) |
+| macOS 12 ou posterior com processador Intel | [Social Media Agent 0.1.0-beta.4 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.4/Social.Media.Agent-0.1.0-beta.4-mac.zip) |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 
@@ -36,7 +36,7 @@ npm start
 - Área **Conhecimento** para preferências gerais, orientações por canal e exemplos de escrita, salvos no workspace.
 - Editor visual de blog com Markdown e prévia formatada. Formatação antiga não suportada permanece editável em Markdown, sem converter o original ao abrir.
 - Legenda e cards manuais com inclusão, duplicação, remoção e ordenação. Reescrita com IA gera uma proposta para comparar, aplicar ou descartar; alterações durante a chamada impedem a aplicação sobre o texto modificado.
-- Imagens locais JPEG, PNG e WebP, enquadramento, três modelos visuais, cores, tipografia e assinatura. Padrões do autor e estilo de cada revisão ficam salvos.
+- Imagens locais JPEG, PNG e WebP, enquadramento, três modelos visuais, cores, família e tamanho da fonte e assinatura. Padrões do autor e estilo de cada revisão ficam salvos.
 - Renderização local em JPEG 1080 × 1350 compartilhada entre prévia, exportação e publicação, com conferência dos bytes aprovados.
 - Cofre AES-256-GCM com chave derivada por scrypt e senha-mestra; credenciais desbloqueadas ficam no processo principal. Com a opção **Lembrar neste computador**, o sistema operacional protege uma cópia local da senha para reabrir somente aquele workspace na mesma conta do computador.
 - Aprovação por revisão, canal e destino; editar exige aprovar novamente.

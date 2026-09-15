@@ -162,8 +162,9 @@ async function reconcile(
       );
   } else {
     const { token } = await blogger.verify(w, service);
+    // Blogger exposes post.status only in admin-level responses.
     post = await providers.request(
-      `https://www.googleapis.com/blogger/v3/blogs/${s.bloggerId}/posts/${remoteId}`,
+      `https://www.googleapis.com/blogger/v3/blogs/${s.bloggerId}/posts/${remoteId}?view=ADMIN`,
       {
         headers: { Authorization: "Bearer " + token },
       },

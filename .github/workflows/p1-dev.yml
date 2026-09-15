@@ -2,31 +2,58 @@ name: P1 development validation
 on:
   push:
     branches: [fix/p1-editorial-efficiency]
-    paths: [.github/workflows/p1-dev.yml, scripts/p1.patch]
+    paths: ['scripts/p1-part*.b64', scripts/apply-p1.cjs, .github/workflows/p1-dev.yml]
 permissions:
   contents: write
+concurrency:
+  group: p1-editorial-validation
+  cancel-in-progress: true
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
+  validate:
+    runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: fix/p1-editorial-efficiency
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - name: Apply exact tested P1 source
+        run: node scripts/apply-p1.cjs
       - run: npm ci
-      - run: npx install-electron
-      - name: Apply staged P1 changes
-        run: |
-          if [ -f scripts/p1.patch ]; then git apply --check scripts/p1.patch && git apply scripts/p1.patch; fi
       - run: npm test
       - run: npm run build
-      - name: Pack isolated development environment
+      - run: npx install-electron
+      - run: npm run test:desktop
+      - run: npm run test:editorial-desktop
+        env:
+          STUDIO_CAPTURE_DIR: p1-captures
+      - name: Preserve temporary validation evidence
         if: always()
-        run: tar -czf /tmp/p1-env.tar.gz --exclude=.git --exclude=release .
-      - uses: actions/upload-artifact@v4
-        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: p1-environment
-          path: /tmp/p1-env.tar.gz
+          name: p1-validation
+          path: |
+            core
+            electron
+            src
+            tests
+            docs/p1-validation.md
+            package.json
+            p1-captures
           retention-days: 1
+      - name: Commit tested source to P1 branch
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add core electron src tests docs package.json README.md
+          git diff --cached --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git commit -m "fix: implement P1 autosave, shared rendering and scoped generation"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin HEAD:fix/p1-editorial-efficiency
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git rev-parse HEAD

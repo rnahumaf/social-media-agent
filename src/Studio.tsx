@@ -36,6 +36,8 @@ import SettingsView from "./SettingsView";
 import { createDraftWriter } from "../core/draft-writer.mjs";
 import BlogEditor, { BlogPreview } from "./BlogEditor";
 import CardEditor, { CardPreviews } from "./CardEditor";
+import { CardTextPreview } from "./CardTextEditor";
+import { cardTextKey } from "../core/card-rich-text.mjs";
 import PublishDestinations from "./PublishDestinations";
 import RevisionSources from "./RevisionSources";
 const api = window.studio || preview;
@@ -470,13 +472,11 @@ export default function App() {
     setRenderedRevision("");
     setPanel("review");
   }
-  const originalText = (target: RewriteRequest["target"], index?: number) =>
-    target === "card"
-      ? JSON.stringify({
-          title: draft?.cards[index!]?.title,
-          body: draft?.cards[index!]?.body,
-        })
-      : draft?.[target] || "";
+  const originalText = (target: RewriteRequest["target"], index?: number) => {
+    if (target !== "card") return draft?.[target] || "";
+    const card = draft?.cards[index!];
+    return card ? cardTextKey(card) : "";
+  };
   async function requestRewrite() {
     if (!rewriteTarget || !draft || !p) return;
     const target = { ...rewriteTarget },
@@ -517,7 +517,14 @@ export default function App() {
         ? {
             ...draft,
             cards: draft.cards.map((c, i) =>
-              i === proposal.index ? { ...c, ...(proposal.value as Card) } : c,
+              i === proposal.index
+                ? {
+                    ...c,
+                    titleRich: undefined,
+                    bodyRich: undefined,
+                    ...(proposal.value as Card),
+                  }
+                : c,
             ),
           }
         : { ...draft, [proposal.target]: proposal.value };
@@ -743,6 +750,7 @@ export default function App() {
               {session && (
                 <RunActivity
                   session={session}
+                  channels={selected}
                   busy={busy}
                   steer={steer}
                   setSteer={setSteer}
@@ -1169,19 +1177,19 @@ export default function App() {
             <div className="suggestion-comparison">
               <section>
                 <h3>Original</h3>
-                <pre>
-                  {proposal.target === "card"
-                    ? Object.values(JSON.parse(proposal.original)).join("\n\n")
-                    : proposal.original}
-                </pre>
+                {proposal.target === "card" ? (
+                  <CardTextPreview card={JSON.parse(proposal.original)} />
+                ) : (
+                  <pre>{proposal.original}</pre>
+                )}
               </section>
               <section>
                 <h3>Sugestão</h3>
-                <pre>
-                  {typeof proposal.value === "string"
-                    ? proposal.value
-                    : `${proposal.value.title}\n\n${proposal.value.body}`}
-                </pre>
+                {typeof proposal.value === "string" ? (
+                  <pre>{proposal.value}</pre>
+                ) : (
+                  <CardTextPreview card={proposal.value} />
+                )}
               </section>
             </div>
             {!canApply && (

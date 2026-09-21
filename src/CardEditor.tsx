@@ -10,6 +10,7 @@ import {
 import type { API, Card, CardStyle, Revision, State } from "./types";
 import { defaultStyle } from "./editorial";
 import { useCardRender, type CardRender } from "./useCardRender";
+import CardTextEditor, { CardTextPreview } from "./CardTextEditor";
 
 export function CardPreviews({
   revision,
@@ -84,8 +85,13 @@ function CardPreviewList({
               }
             >
               <small>{style.signature}</small>
-              <h3 style={{ color: style.titleColor }}>{card.title}</h3>
-              <p>{card.body}</p>
+              <div
+                style={
+                  { "--card-title-color": style.titleColor } as CSSProperties
+                }
+              >
+                <CardTextPreview card={card} />
+              </div>
               <small>
                 {i + 1} / {revision.cards.length}
               </small>
@@ -230,29 +236,21 @@ export default function CardEditor({
                 </button>
               </div>
             </div>
-            <label>
-              Título do card
-              <input
-                maxLength={90}
-                value={card.title}
-                readOnly={readOnly}
-                onChange={(e) => changeCard({ title: e.target.value })}
-              />
-              <small>{card.title.length}/90</small>
-            </label>
-            <label>
-              Texto do card
-              <textarea
-                maxLength={420}
-                value={card.body}
-                readOnly={readOnly}
-                onChange={(e) => changeCard({ body: e.target.value })}
-              />
-              <small>
-                {card.body.length}/420 · Com imagens, textos menores ficam mais
-                legíveis.
-              </small>
-            </label>
+            <CardTextEditor
+              key={`title-${index}`}
+              value={card.title}
+              rich={card.titleRich}
+              title
+              readOnly={readOnly}
+              onChange={(title, titleRich) => changeCard({ title, titleRich })}
+            />
+            <CardTextEditor
+              key={`body-${index}`}
+              value={card.body}
+              rich={card.bodyRich}
+              readOnly={readOnly}
+              onChange={(body, bodyRich) => changeCard({ body, bodyRich })}
+            />
             <div className="actions">
               <button
                 disabled={

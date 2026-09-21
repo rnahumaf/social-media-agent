@@ -7,8 +7,13 @@ import {
   Wrench,
   RotateCcw,
   Clock3,
+  Check,
+  LoaderCircle,
+  Pause,
+  Square,
 } from "lucide-react";
-import type { State, Project, RunEvent } from "./types";
+import type { Project, RunEvent, Channel } from "./types";
+import { runProgress } from "../core/run-progress.mjs";
 const labels: Record<string, string> = {
   researcher: "Pesquisador",
   writer: "Redator",
@@ -33,18 +38,29 @@ export function RunActivity({
   steer,
   setSteer,
   resume,
+  channels,
 }: {
   session: NonNullable<Project["sessions"]>[number];
   busy: boolean;
   steer: string;
   setSteer: (value: string) => void;
   resume: () => void;
+  channels: Channel[];
 }) {
   const log = useRef<HTMLDivElement>(null);
   const retryable =
     ["paused", "interrupted", "cancelled"].includes(session.status) &&
     session.cursor !== "done";
   const latest = session.events.at(-1);
+  const progress = runProgress(session, channels);
+  const stepLabels = {
+    complete: "Concluída",
+    active: "Em execução",
+    pending: "A seguir",
+    paused: "Pausada",
+    cancelled: "Cancelada",
+    interrupted: "Interrompida",
+  };
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [session.events.length]);
@@ -61,14 +77,54 @@ export function RunActivity({
       <Clock3 size={14} />
     );
   return (
-    <section className={`run-activity ${session.status}`} aria-live="polite">
+    <section
+      className={`run-activity ${session.status}`}
+      aria-label="Progresso da geração"
+    >
       <div className="run-summary">
-        <Activity size={17} />
-        <span>
-          <b>{labels[session.status] || session.status}</b>
-          <small>{latest?.title || "Execução registrada"}</small>
+        <Activity size={17} aria-hidden="true" />
+        <span role="status" aria-live="polite" aria-atomic="true">
+          <b>
+            {session.status === "running" && progress.currentIndex >= 0
+              ? `Etapa ${progress.currentIndex + 1} de ${progress.steps.length}: ${progress.steps[progress.currentIndex].label}`
+              : labels[session.status] || session.status}
+          </b>
+          <small>
+            {session.status === "running" && progress.currentIndex >= 0
+              ? progress.steps[progress.currentIndex].detail
+              : latest?.title || "Execução registrada"}
+          </small>
+        </span>
+        <span className="run-count">
+          {progress.completed} de {progress.steps.length} concluídas
         </span>
       </div>
+      <ol className="run-timeline" aria-label="Etapas da geração">
+        {progress.steps.map((step, index) => (
+          <li
+            key={step.id}
+            className={step.state}
+            data-step={step.id}
+            aria-current={index === progress.currentIndex ? "step" : undefined}
+          >
+            <span className="timeline-marker" aria-hidden="true">
+              {step.state === "complete" ? (
+                <Check size={16} />
+              ) : step.state === "active" ? (
+                <LoaderCircle size={16} />
+              ) : step.state === "paused" || step.state === "interrupted" ? (
+                <Pause size={14} />
+              ) : step.state === "cancelled" ? (
+                <Square size={12} />
+              ) : (
+                index + 1
+              )}
+            </span>
+            <span className="timeline-label">{step.label}</span>
+            <small>{stepLabels[step.state]}</small>
+          </li>
+        ))}
+      </ol>
       <details key={`${session.id}-${session.status}`} open={retryable}>
         <summary>Ver atividade dos agentes</summary>
         <div className="event-log" ref={log}>

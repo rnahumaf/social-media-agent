@@ -212,6 +212,8 @@ const actions = {
             ...card,
             title: "Seu próximo card",
             body: "Escreva o texto ou adicione uma imagem.",
+            titleRich: null,
+            bodyRich: null,
           }
         : card,
     );

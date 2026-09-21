@@ -51,6 +51,7 @@ global.fetch = async (url, options = {}) => {
 require("../electron/main.cjs");
 app.whenReady().then(async () => {
   const win = BrowserWindow.getAllWindows()[0];
+  win.webContents.setBackgroundThrottling(false);
   const evaluate = (code) =>
     win.webContents.executeJavaScript(code).catch((error) => {
       console.error("Failed P0 renderer evaluation:", code);

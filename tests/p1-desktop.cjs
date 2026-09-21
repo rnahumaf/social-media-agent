@@ -57,6 +57,7 @@ global.fetch = async (url, options = {}) => {
 require("../electron/main.cjs");
 app.whenReady().then(async () => {
   const win = BrowserWindow.getAllWindows()[0];
+  win.webContents.setBackgroundThrottling(false);
   win.hide();
   const evaluate = (code) =>
     win.webContents.executeJavaScript(code).catch((error) => {
@@ -85,6 +86,12 @@ app.whenReady().then(async () => {
     evaluate(
       `(()=>{const el=document.querySelector(${JSON.stringify(selector)});if(!el)throw Error('Field missing');Object.getOwnPropertyDescriptor(el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()`,
     );
+  const fillCardText = async (label, value) => {
+    await evaluate(
+      `(()=>{const el=document.querySelector('[aria-label="'+${JSON.stringify(label)}+'"]');el.focus();const range=document.createRange();range.selectNodeContents(el);getSelection().removeAllRanges();getSelection().addRange(range);})()`,
+    );
+    await win.webContents.insertText(value);
+  };
   const close = async () => {
     await evaluate(
       `document.querySelector('[aria-label="Fechar diálogo"]')?.click()`,
@@ -335,8 +342,8 @@ app.whenReady().then(async () => {
       .toFile(chosen);
     await click("Adicionar imagem");
     await dom(`!!document.querySelector('input[aria-label="Zoom da imagem"]')`);
-    await fill('.card-fields input[maxlength="90"]', "Título ".repeat(12));
-    await fill(".card-fields textarea", "Longo ".repeat(70));
+    await fillCardText("Título do card", "Título ".repeat(12));
+    await fillCardText("Texto do card", "Longo ".repeat(70));
     await dom(
       `!!document.querySelector('.card-thumbnails .card-render-error') && document.querySelectorAll('.card-thumbnails img').length===1`,
     );
@@ -345,8 +352,8 @@ app.whenReady().then(async () => {
       /Card 2/,
     );
     await capture("p1-isolated-render-error");
-    await fill('.card-fields input[maxlength="90"]', "Ideia clara");
-    await fill(".card-fields textarea", "Texto que cabe.");
+    await fillCardText("Título do card", "Ideia clara");
+    await fillCardText("Texto do card", "Texto que cabe.");
     await dom(
       `!document.querySelector('.card-render-error') && document.querySelectorAll('.card-thumbnails img').length===2`,
     );

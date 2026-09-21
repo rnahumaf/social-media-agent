@@ -1,6 +1,6 @@
 {
   "name": "social-media-agent",
-  "version": "0.1.0-beta.5",
+  "version": "0.1.0-beta.6",
   "private": true,
   "description": "Estúdio editorial local com agentes e aprovação humana",
   "author": "Rodrigo Nahum",
@@ -15,6 +15,8 @@
     "test": "node --test tests/*.test.cjs",
     "test:desktop": "electron tests/desktop-smoke.cjs",
     "test:editorial-desktop": "electron tests/editorial-desktop.cjs && electron tests/p0-desktop.cjs && electron tests/p1-desktop.cjs",
+    "test:rich-text-desktop": "electron tests/card-rich-text-desktop.cjs",
+    "test:timeline-desktop": "electron tests/run-timeline-desktop.cjs",
     "package:win": "npm run build && install-electron && electron-builder --win portable --publish never",
     "package:mac": "npm run build && install-electron && electron-builder --mac zip --publish never",
     "test:p0-desktop": "electron tests/p0-desktop.cjs",
@@ -44,6 +46,8 @@
     }
   },
   "dependencies": {
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-list": "^3.31.3",
     "@tiptap/markdown": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",

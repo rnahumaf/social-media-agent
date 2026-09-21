@@ -1,4 +1,5 @@
 const writingSkill = require("./skills/rn-natural-writing.cjs");
+const { cardFormattingInstructions } = require("./card-text-schema.cjs");
 const naturalWriting = `[Skill editorial ativa: ${writingSkill.name}]
 
 ${writingSkill.instructions}`;
@@ -13,7 +14,9 @@ Escreva exclusivamente o artigo do BLOG em Markdown para o público e o objetivo
 
 Adapte o argumento do artigo ao ritmo de um carrossel. Se não houver artigo, escreva diretamente a partir do briefing e do dossiê; não exija nem escreva um artigo para blog. Cada card deve comunicar uma ideia concreta e avançar a sequência; títulos não devem ser rótulos vazios. Preserve o sentido, os fatos, as referências relevantes e as limitações específicas das fontes. A legenda deve complementar os cards, sem repetir todo o conteúdo nem terminar com um aviso genérico.
 
-Retorne exclusivamente JSON válido no formato {"caption":"legenda e hashtags","cards":[{"title":"até 90 caracteres","body":"texto conciso, preferencialmente até 280 caracteres; limite absoluto de 420"}]}. Crie de 2 a 8 cards. Distribua o conteúdo entre mais cards quando necessário.`,
+Retorne exclusivamente JSON válido no formato {"caption":"legenda e hashtags","cards":[{"title":"até 90 caracteres","body":"texto conciso, preferencialmente até 280 caracteres; limite absoluto de 420","titleRich":null,"bodyRich":null}]}. Crie de 2 a 8 cards. Distribua o conteúdo entre mais cards quando necessário.
+
+${cardFormattingInstructions}`,
   reviewer: `${naturalWriting}
 
 Revise artigo, legenda e cards contra as fontes. Identifique afirmações sem suporte, distorções, referências ausentes e correções necessárias. Aponte também aberturas genéricas, avisos defensivos, falsa ponderação, repetição, argumento sem progressão, travessões estilísticos e fórmulas prontas. Cite o trecho problemático e proponha uma redação direta quando houver problema. Não certifique a correção clínica e não altere os materiais.`,

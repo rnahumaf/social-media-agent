@@ -44,6 +44,7 @@ global.fetch = async (url, options) => {
 require("../electron/main.cjs");
 app.whenReady().then(async () => {
   const win = BrowserWindow.getAllWindows()[0];
+  win.webContents.setBackgroundThrottling(false);
   win.hide();
   const evaluate = (code) =>
     win.webContents.executeJavaScript(code).catch((error) => {

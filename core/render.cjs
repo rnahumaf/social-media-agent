@@ -10,7 +10,13 @@ const escape = (s) =>
         "'": "&apos;",
       })[c],
   );
+const { textDocument } = require("./card-rich-text.mjs");
+const { layoutText, svgText } = require("./card-text-layout.cjs");
 function wrap(text, width) {
+  if (text.includes("\n"))
+    return text
+      .split("\n")
+      .flatMap((line) => (line ? wrap(line, width) : [""]));
   const lines = [];
   let line = "";
   for (const word of text.split(/\s+/)) {
@@ -64,8 +70,9 @@ const layouts = [
   },
 ];
 function cardLayout(card, style) {
+  const parsed = require("./editorial-model.cjs").cardSchema.safeParse(card);
   if (
-    !card ||
+    !parsed.success ||
     typeof card.title !== "string" ||
     typeof card.body !== "string" ||
     (!card.title.trim() && !card.body.trim() && !card.image) ||
@@ -85,6 +92,37 @@ function cardLayout(card, style) {
       bodyWidth: Math.max(1, Math.floor(base.bodyWidth / scale)),
       bodyLineHeight: Math.round(base.bodyLineHeight * scale),
     };
+    if (card.titleRich || card.bodyRich) {
+      const title = card.title
+        ? layoutText(
+            card.titleRich || textDocument(card.title, true),
+            layout.titleSize,
+            layout.titleLineHeight,
+          )
+        : { lines: [], height: 0 };
+      const body = card.body
+        ? layoutText(
+            card.bodyRich || textDocument(card.body),
+            layout.bodySize,
+            layout.bodyLineHeight,
+          )
+        : { lines: [], height: 0 };
+      const bodyY =
+        (style?.layout === "split" && card.image ? 710 : 335) + title.height;
+      if (
+        title.lines.length <= 5 &&
+        body.lines.length <= 13 &&
+        bodyY + body.height - layout.bodyLineHeight <= 1160
+      )
+        return {
+          ...layout,
+          title: title.lines,
+          body: body.lines,
+          bodyY,
+          rich: true,
+        };
+      continue;
+    }
     const title = wrap(card.title, layout.titleWidth);
     const body = wrap(card.body, layout.bodyWidth);
     const bodyY =
@@ -126,7 +164,23 @@ function svgCard(card, index, total, style, dir) {
   }
   const font = s.font === "serif" ? "Georgia" : "Arial";
   const titleY = s.layout === "split" && card.image ? 670 : 295;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350"><rect width="1080" height="1350" fill="${s.background}"/>${photo}<rect x="80" y="96" width="64" height="8" fill="${s.accent}"/><text x="80" y="164" font-family="${font}" font-size="24" fill="${s.textColor}">${escape(s.signature)}</text><g font-family="${font}" fill="${s.titleColor}" font-weight="bold" font-size="${layout.titleSize}">${title.map((line, i) => `<text x="80" y="${titleY + i * layout.titleLineHeight}">${escape(line)}</text>`).join("")}</g><g font-family="${font}" font-size="${layout.bodySize}" fill="${s.textColor}">${body.map((line, i) => `<text x="80" y="${layout.bodyY + i * layout.bodyLineHeight}">${escape(line)}</text>`).join("")}</g><line x1="80" x2="1000" y1="1220" y2="1220" stroke="${s.accent}"/><text x="80" y="1272" font-family="${font}" font-size="24" fill="${s.textColor}">${index + 1} / ${total}</text></svg>`;
+  const titleSVG = layout.rich
+    ? svgText(title, titleY, escape)
+    : title
+        .map(
+          (line, i) =>
+            `<text x="80" y="${titleY + i * layout.titleLineHeight}">${escape(line)}</text>`,
+        )
+        .join("");
+  const bodySVG = layout.rich
+    ? svgText(body, layout.bodyY, escape)
+    : body
+        .map(
+          (line, i) =>
+            `<text x="80" y="${layout.bodyY + i * layout.bodyLineHeight}">${escape(line)}</text>`,
+        )
+        .join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350"><rect width="1080" height="1350" fill="${s.background}"/>${photo}<rect x="80" y="96" width="64" height="8" fill="${s.accent}"/><text x="80" y="164" font-family="${font}" font-size="24" fill="${s.textColor}">${escape(s.signature)}</text><g font-family="${font}" fill="${s.titleColor}" font-weight="bold" font-size="${layout.titleSize}">${titleSVG}</g><g font-family="${font}" font-size="${layout.bodySize}" fill="${s.textColor}">${bodySVG}</g><line x1="80" x2="1000" y1="1220" y2="1220" stroke="${s.accent}"/><text x="80" y="1272" font-family="${font}" font-size="24" fill="${s.textColor}">${index + 1} / ${total}</text></svg>`;
 }
 // Cache the exact SVG, including validated image bytes and card position.
 // Validation happens before cache lookup, preserving P0 approval checks.
@@ -160,6 +214,8 @@ async function previewCards(dir, cards, style) {
                 ...card,
                 title: "Seu próximo card",
                 body: "Escreva o texto ou adicione uma imagem.",
+                titleRich: null,
+                bodyRich: null,
               }
             : card;
         const image = await renderCard(dir, shown, index, cards.length, style);

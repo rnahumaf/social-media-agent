@@ -23,7 +23,9 @@ export type CardImageRef = {
   y: number;
   zoom: number;
 };
-export type Card = { title: string; body: string; image?: CardImageRef };
+export type Card = import("../core/card-rich-text.mjs").RichCardText & {
+  image?: CardImageRef;
+};
 export type RewriteRequest = {
   id: string;
   target: "article" | "caption" | "card";

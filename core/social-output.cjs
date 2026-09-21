@@ -1,11 +1,25 @@
 const { z } = require("zod");
+const {
+  cardTextFields,
+  validateCardText,
+  cardTextJSON,
+  richTextDefs,
+} = require("./card-text-schema.cjs");
 
 const cardSchema = z
   .object({
-    title: z.string().trim().min(1).max(90),
-    body: z.string().trim().min(1).max(420),
+    ...cardTextFields,
+    title: z
+      .string()
+      .max(90)
+      .refine((v) => v.trim().length > 0),
+    body: z
+      .string()
+      .max(420)
+      .refine((v) => v.trim().length > 0),
   })
-  .strict();
+  .strict()
+  .superRefine(validateCardText);
 const socialSchema = z
   .object({
     caption: z.string().trim().min(1).max(200000),
@@ -20,6 +34,7 @@ const responseFormat = {
     strict: true,
     schema: {
       type: "object",
+      $defs: richTextDefs,
       additionalProperties: false,
       properties: {
         caption: {
@@ -31,21 +46,7 @@ const responseFormat = {
           type: "array",
           minItems: 2,
           maxItems: 8,
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              title: { type: "string", minLength: 1, maxLength: 90 },
-              body: {
-                type: "string",
-                minLength: 1,
-                maxLength: 420,
-                description:
-                  "Texto conciso, preferencialmente com até 280 caracteres; limite absoluto de 420.",
-              },
-            },
-            required: ["title", "body"],
-          },
+          items: cardTextJSON,
         },
       },
       required: ["caption", "cards"],
@@ -88,6 +89,14 @@ function describe(error) {
     (issue) => issue.path?.[0] === "cards" && issue.path.length === 1,
   );
   const parts = [];
+  if (
+    issues.some((issue) =>
+      issue.path?.some((part) => part === "titleRich" || part === "bodyRich"),
+    )
+  )
+    parts.push(
+      "A formatação dos cards é inválida ou difere do texto visível. Confira titleRich/bodyRich, as quebras de linha e os recuos.",
+    );
   if (longBodies.length)
     parts.push(
       `${longBodies.length} ${longBodies.length === 1 ? "texto de card ultrapassa" : "textos de cards ultrapassam"} 420 caracteres (card${longBodies.length === 1 ? "" : "s"} ${longBodies.join(", ")}).`,
@@ -175,6 +184,11 @@ function fitLengths(content) {
     )
   )
     return null;
+  // Never flatten or silently discard formatting when repairing a response.
+  if (value.cards.some((card) => card?.titleRich || card?.bodyRich)) {
+    const result = socialSchema.safeParse(value);
+    return result.success ? result.data : null;
+  }
   const cards = value.cards.flatMap((card) => {
     const titleParts = splitText(card.title, 90);
     const title = titleParts.shift();

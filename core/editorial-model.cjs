@@ -43,11 +43,14 @@ const imageSchema = z.object({
   y: z.number().min(0).max(100).default(50),
   zoom: z.number().min(1).max(3).default(1),
 });
-const cardSchema = z.object({
-  title: z.string().max(90),
-  body: z.string().max(420),
-  image: imageSchema.optional(),
-});
+const { cardTextFields, validateCardText } = require("./card-text-schema.cjs");
+const { cardText } = require("./card-rich-text.mjs");
+const cardSchema = z
+  .object({
+    ...cardTextFields,
+    image: imageSchema.optional(),
+  })
+  .superRefine(validateCardText);
 function channels(p) {
   return p.channels || ["blog", "instagram"];
 }
@@ -84,7 +87,7 @@ function scopedContext(p, role, artifacts = {}, previous) {
       previous: previous
         ? {
             caption: previous.caption,
-            cards: previous.cards.map(({ title, body }) => ({ title, body })),
+            cards: previous.cards.map(cardText),
           }
         : undefined,
     };

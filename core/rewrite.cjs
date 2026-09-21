@@ -3,6 +3,13 @@ const { current, digest } = require("./workspace.cjs");
 const { cardSchema, knowledgeFor, channels } = require("./editorial-model.cjs");
 const { naturalWriting } = require("./editorial-prompts.cjs");
 const providers = require("./providers.cjs");
+const { cardText } = require("./card-rich-text.mjs");
+const {
+  cardTextSchema,
+  cardTextJSON,
+  richTextDefs,
+  cardFormattingInstructions,
+} = require("./card-text-schema.cjs");
 const inputSchema = z.object({
   id: z.string(),
   target: z.enum(["article", "caption", "card"]),
@@ -27,9 +34,7 @@ async function rewrite(w, payload, signal) {
       "Configure a chave OpenRouter e o modelo deste editor para usar a IA.",
     );
   const original =
-    input.target === "card"
-      ? { title: input.card?.title, body: input.card?.body }
-      : input.text;
+    input.target === "card" ? input.card && cardText(input.card) : input.text;
   if (
     input.target === "card" &&
     (!input.card || (!input.card.title.trim() && !input.card.body.trim()))
@@ -62,7 +67,7 @@ async function rewrite(w, payload, signal) {
       signal,
       allowPartial: true,
       maxTokens: input.target === "article" ? 6000 : 2200,
-      system: `${naturalWriting}\nReescreva somente ${input.target === "article" ? "o artigo para BLOG em Markdown; não inclua legenda, cards nem hashtags" : input.target === "caption" ? "a legenda do INSTAGRAM, com até 2200 caracteres" : "o card do INSTAGRAM, retornando JSON com title de até 90 e body de até 420 caracteres"}. Use apenas o conteúdo fornecido. Não invente fontes ou acrescente fatos. Não faça pesquisa externa.\nPreferências do autor:\n${knowledgeFor(w.state, role)}`,
+      system: `${naturalWriting}\nReescreva somente ${input.target === "article" ? "o artigo para BLOG em Markdown; não inclua legenda, cards nem hashtags" : input.target === "caption" ? "a legenda do INSTAGRAM, com até 2200 caracteres" : "o card do INSTAGRAM, retornando JSON com title de até 90 e body de até 420 caracteres"}. Use apenas o conteúdo fornecido. Não invente fontes ou acrescente fatos. Não faça pesquisa externa.\n${input.target === "card" ? cardFormattingInstructions : ""}\nPreferências do autor:\n${knowledgeFor(w.state, role)}`,
       messages: [
         {
           role: "user",
@@ -87,15 +92,7 @@ async function rewrite(w, payload, signal) {
               json_schema: {
                 name: "rewrite_card",
                 strict: true,
-                schema: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["title", "body"],
-                  properties: {
-                    title: { type: "string" },
-                    body: { type: "string" },
-                  },
-                },
+                schema: { ...cardTextJSON, $defs: richTextDefs },
               },
             },
           }
@@ -121,16 +118,13 @@ async function rewrite(w, payload, signal) {
     }
     const value =
       input.target === "card"
-        ? cardSchema
-            .pick({ title: true, body: true })
-            .strict()
-            .parse(
-              JSON.parse(
-                result.content
-                  .replace(/^```(?:json)?\s*/, "")
-                  .replace(/\s*```$/, ""),
-              ),
-            )
+        ? cardTextSchema.parse(
+            JSON.parse(
+              result.content
+                .replace(/^```(?:json)?\s*/, "")
+                .replace(/\s*```$/, ""),
+            ),
+          )
         : z
             .string()
             .trim()

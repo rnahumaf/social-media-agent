@@ -1,16 +1,16 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.5 — versão pública de testes.**
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.6 — versão pública de testes.**
 
 ## Experimentar
 
-Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.5](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.5):
+Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.6](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.6):
 
 | Sistema                                                          | Download                                                                                                                                                                           |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.5 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.5/Social.Media.Agent.0.1.0-beta.5.exe)                 |
-| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.5 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.5/Social.Media.Agent-0.1.0-beta.5-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.5 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.5/Social.Media.Agent-0.1.0-beta.5-mac.zip)               |
+| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.6 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.6/Social.Media.Agent.0.1.0-beta.6.exe)                 |
+| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.6 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.6/Social.Media.Agent-0.1.0-beta.6-arm64-mac.zip) |
+| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.6 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.6/Social.Media.Agent-0.1.0-beta.6-mac.zip)               |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 
@@ -37,6 +37,8 @@ npm start
 - Skill editorial `rn-natural-writing` incluída no runtime e aplicada à geração e à reescrita dos artigos, sem depender da instalação local do desenvolvedor.
 - Editor visual de blog com Markdown e prévia formatada. Formatação antiga não suportada permanece editável em Markdown, sem converter o original ao abrir.
 - Legenda e cards manuais com inclusão, duplicação, remoção e ordenação. Reescrita com IA gera uma proposta para comparar, aplicar ou descartar; alterações durante a chamada impedem a aplicação sobre o texto modificado.
+- Título e corpo dos cards com negrito, itálico, sublinhado, listas com marcadores ou números e recuo. Os controles visuais e o agente usam a mesma formatação, preservada no JPEG e nas revisões.
+- Timeline da geração com etapa atual animada, etapas concluídas e pendentes, pausa, retomada e cancelamento. A sequência acompanha os canais escolhidos e a operação de pesquisa ou adaptação.
 - Imagens locais JPEG, PNG e WebP, enquadramento, três modelos visuais, cores, família e tamanho da fonte e assinatura. Padrões do autor e estilo de cada revisão ficam salvos.
 - Renderização local em JPEG 1080 × 1350 compartilhada entre prévia, exportação e publicação, com conferência dos bytes aprovados.
 - Cofre AES-256-GCM com chave derivada por scrypt e senha-mestra; credenciais desbloqueadas ficam no processo principal. Com a opção **Lembrar neste computador**, o sistema operacional protege uma cópia local da senha para reabrir somente aquele workspace na mesma conta do computador.

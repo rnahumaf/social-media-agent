@@ -76,7 +76,16 @@
   padding: 10px 14px;
 }
 .desktop-studio .run-summary small {
-  display: none;
+  display: block;
+  font-size: 13px;
+  color: #617165;
+}
+.desktop-studio .run-summary b {
+  font-size: 14px;
+}
+.desktop-studio .run-count {
+  font-size: 12px;
+  color: #617165;
 }
 .desktop-studio .run-activity details {
   border: 0;
@@ -335,7 +344,7 @@
   height: auto;
   display: block;
 }
-.card-thumbnails span {
+.card-thumbnails > button > span {
   display: block;
   margin-top: 4px;
 }
@@ -417,6 +426,96 @@
 }
 .card-fields textarea {
   min-height: 150px;
+}
+.card-text-field {
+  margin: 14px 0;
+  min-width: 0;
+}
+.card-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+}
+.card-rich-editor {
+  border: 1px solid #cdd7cc;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+.card-rich-editor:focus-within {
+  outline: 2px solid #87ad96;
+  outline-offset: 1px;
+}
+.card-rich-editor .format-toolbar {
+  padding: 5px;
+  gap: 3px;
+}
+.card-rich-editor .format-toolbar button {
+  padding: 6px;
+  min-width: 30px;
+  min-height: 30px;
+}
+.card-rich-editor button[aria-pressed="true"] {
+  color: #1f503e;
+  background: #eaf1e7;
+  border-color: #b6c9b9;
+}
+.card-text-input {
+  min-height: 120px;
+  padding: 10px 12px;
+  line-height: 1.5;
+  font-size: 14px;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+.card-title-editor .card-text-input {
+  min-height: 58px;
+}
+.card-text-input p,
+.rich-text-preview p {
+  margin: 0 0 0.45em;
+}
+.card-text-input > :last-child,
+.rich-text-preview > :last-child {
+  margin-bottom: 0;
+}
+.card-text-input ul,
+.card-text-input ol,
+.rich-text-preview ul,
+.rich-text-preview ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+.card-text-field > small {
+  display: block;
+  margin-top: 5px;
+  color: #657167;
+}
+.rich-text-preview {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.card-rich-title {
+  color: var(--card-title-color, inherit);
+  font-size: 1.15em;
+  font-weight: 700;
+  margin: 0 0 0.6em;
+}
+.preview-card .card-text-preview {
+  font-size: calc(12px * var(--card-font-scale, 1));
+}
+.preview-card .card-rich-title {
+  font-size: calc(18px * var(--card-font-scale, 1));
+}
+.preview-card .rich-text-preview p {
+  font-size: inherit;
+}
+.card-thumbnails .card-text-preview {
+  font-size: calc(7px * var(--card-font-scale, 1));
+}
+.card-thumbnails .card-rich-title {
+  font-size: calc(10px * var(--card-font-scale, 1));
 }
 .style-editor {
   display: grid;
@@ -954,7 +1053,6 @@ h3 {
 }
 .run-activity.running .run-summary > svg {
   color: #28634d;
-  animation: activity-pulse 1.4s ease-in-out infinite;
 }
 @keyframes activity-pulse {
   50% {
@@ -983,6 +1081,105 @@ h3 {
   color: #8b9687;
   font-size: 10px;
   white-space: nowrap;
+}
+.run-timeline {
+  display: flex;
+  list-style: none;
+  padding: 4px 14px 14px;
+  margin: 0;
+}
+.run-timeline > li {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  color: #69766d;
+}
+.run-timeline > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: calc(50% + 19px);
+  width: calc(100% - 38px);
+  height: 2px;
+  background: #dce4da;
+  transition: background-color 160ms ease;
+}
+.run-timeline > .complete:not(:last-child)::after {
+  background: #78a18b;
+}
+.timeline-marker {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ccd7cb;
+  border-radius: 50%;
+  background: #fbfcfa;
+  font-size: 12px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+.run-timeline .complete .timeline-marker {
+  background: #e8f1e8;
+  border-color: #bad0be;
+  color: #28634d;
+}
+.run-timeline .active .timeline-marker {
+  color: #fff;
+  background: #28634d;
+  border-color: #28634d;
+}
+.run-timeline .active .timeline-marker svg {
+  animation: timeline-spin 1.2s linear infinite;
+}
+.run-timeline .paused .timeline-marker,
+.run-timeline .interrupted .timeline-marker,
+.run-timeline .cancelled .timeline-marker {
+  background: #fcf1d9;
+  border-color: #d8c28f;
+  color: #826128;
+}
+.timeline-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+.run-timeline .active .timeline-label {
+  color: #20503d;
+  font-weight: 700;
+}
+.run-timeline small {
+  font-size: 12px;
+  line-height: 1.35;
+}
+@keyframes timeline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-timeline .timeline-marker,
+  .run-timeline > li::after {
+    transition: none;
+  }
+  .run-timeline .active .timeline-marker svg {
+    animation: none;
+  }
+}
+@media (max-width: 700px) {
+  .run-summary {
+    flex-wrap: wrap;
+  }
+  .run-count {
+    margin-left: 27px;
+  }
 }
 .run-activity details {
   border-top: 1px solid #e6ebe3;

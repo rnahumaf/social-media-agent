@@ -11,6 +11,7 @@ Checklist de falhas reproduzidas com respostas controladas e corrigidas:
 - [x] Social: JSON salvo com `finish_reason=length` não é reutilizado como carrossel completo na retomada.
 - [x] Reescrita e conversa: respostas truncadas recebem nova tentativa com consumo somado. Mensagens de conversa interrompidas ao fechar o aplicativo reaparecem com ação de repetir, sem duplicar o pedido.
 - [x] Cancelamento no fim da execução: uma revisão já concluída e salva permanece acessível.
+- [x] Aceite desktop de conversa: a pasta temporária agora é removida pelo processo de teste após o Electron encerrar, evitando erro de permissão e travamento da CI no Windows.
 
 O núcleo passou em 139 testes automatizados; build TypeScript/Vite e aceites Electron do chat, da timeline e do fluxo editorial passaram localmente. A CI executa também o novo aceite de chat no Windows e empacota Windows e macOS. Chamadas pagas reais ao OpenRouter não foram feitas nessa auditoria.
 

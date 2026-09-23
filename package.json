@@ -17,7 +17,7 @@
     "test:editorial-desktop": "electron tests/editorial-desktop.cjs && electron tests/p0-desktop.cjs && electron tests/p1-desktop.cjs",
     "test:rich-text-desktop": "electron tests/card-rich-text-desktop.cjs",
     "test:timeline-desktop": "electron tests/run-timeline-desktop.cjs",
-    "test:chat-desktop": "electron tests/chat-limits-desktop.cjs",
+    "test:chat-desktop": "node tests/run-chat-limits-desktop.cjs",
     "package:win": "npm run build && install-electron && electron-builder --win portable --publish never",
     "package:mac": "npm run build && install-electron && electron-builder --mac zip --publish never",
     "test:p0-desktop": "electron tests/p0-desktop.cjs",

@@ -2,19 +2,17 @@ const { app, BrowserWindow, dialog } = require("electron");
 app.disableHardwareAcceleration();
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "chat-limits-desktop-"));
+const root = process.env.STUDIO_CHAT_TEST_ROOT;
+if (!root || !fs.existsSync(root))
+  throw Error("Execute este aceite pelo script test:chat-desktop.");
+let phase = "inicialização";
+const watchdog = setTimeout(() => {
+  console.error(`Chat desktop excedeu o prazo na fase: ${phase}`);
+  app.exit(1);
+}, 90000);
+app.once("quit", () => clearTimeout(watchdog));
 app.setPath("userData", path.join(root, "user-data"));
-app.once("quit", () => {
-  const resolved = fs.realpathSync(root);
-  if (
-    path.dirname(resolved) !== fs.realpathSync(os.tmpdir()) ||
-    !path.basename(resolved).startsWith("chat-limits-desktop-")
-  )
-    throw Error("Unexpected desktop fixture path.");
-  fs.rmSync(resolved, { recursive: true, force: true });
-});
 dialog.showOpenDialog = async () => ({
   canceled: false,
   filePaths: [path.join(root, "workspace")],
@@ -43,6 +41,7 @@ require("../electron/main.cjs");
 
 app.whenReady().then(async () => {
   try {
+    phase = "abrir workspace";
     const win = BrowserWindow.getAllWindows()[0];
     await new Promise((resolve) =>
       win.webContents.isLoading()
@@ -78,6 +77,7 @@ app.whenReady().then(async () => {
       manual: true,
     });
     const id = created.projects[0].id;
+    phase = "resposta automática";
     const completed = await call("chat", {
       id,
       message: "Responda ao teste",
@@ -97,6 +97,7 @@ app.whenReady().then(async () => {
 
     calls = [];
     alwaysLength = true;
+    phase = "resposta no limite e retomada";
     const payload = {
       id,
       message: "Outra resposta de teste",
@@ -120,6 +121,7 @@ app.whenReady().then(async () => {
       1,
     );
 
+    phase = "recarregar interface";
     const loaded = new Promise((resolve) =>
       win.webContents.once("did-finish-load", resolve),
     );
@@ -165,6 +167,7 @@ app.whenReady().then(async () => {
       horizontalOverflow: false,
     });
 
+    phase = "repetir pela interface";
     alwaysLength = false;
     await win.webContents.executeJavaScript(
       "[...document.querySelectorAll('.messages button')].find(b => b.textContent.includes('Tentar responder novamente')).click()",
@@ -186,6 +189,7 @@ app.whenReady().then(async () => {
     );
 
     console.log("Chat limit recovery desktop passed.");
+    phase = "encerramento";
     win.destroy();
     app.quit();
   } catch (error) {

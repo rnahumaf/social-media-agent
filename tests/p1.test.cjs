@@ -385,10 +385,14 @@ test("P1 partial generation saves text and consumption without promoting an inco
   );
   assert.equal(current(p).id, before);
   assert.equal(p.sessions.at(-1).artifacts.partial.content, "# Texto parcial");
-  assert.equal(p.runs.at(-1).usage.total_tokens, 90);
+  assert.equal(p.runs.at(-1).usage.total_tokens, 180);
+  assert.deepEqual(
+    calls.slice(0, 2).map((call) => call.maxTokens),
+    [6000, 9000],
+  );
   limited = false;
   await run(w, p.id, { resume: true });
-  assert.ok(calls[1].maxTokens > calls[0].maxTokens);
+  assert.equal(calls[2].maxTokens, 9000);
   assert.equal(current(p).article, "# Completo");
 });
 test("P1 rewrite receives durable decisions and recent directions without external search", async (t) => {
@@ -482,6 +486,6 @@ test("P1 search planning stores truncated output and does not run an external se
   };
   await assert.rejects(run(w, p.id), /plano de pesquisa atingiu/);
   assert.equal(p.sessions.at(-1).artifacts.partial.phase, "search");
-  assert.equal(p.runs.at(-1).usage.total_tokens, 800);
+  assert.equal(p.runs.at(-1).usage.total_tokens, 1600);
   assert.equal(p.sessions.at(-1).cursor, "search");
 });

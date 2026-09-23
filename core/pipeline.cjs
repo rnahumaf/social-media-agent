@@ -218,73 +218,48 @@ async function research(w, p, session, signal, save) {
         title: "OpenRouter · planejar busca",
         detail: `Modelo: ${step.model}`,
       });
-      const result = await providers.complete({
-        key: w.secrets?.openrouter,
-        model: step.model,
-        system: searchInstructions,
-        maxTokens:
-          contextPolicy.outputLimits.search *
-          (session.artifacts.partial?.phase === "search" ? 2 : 1),
-        allowPartial: true,
-        messages: [
-          {
-            role: "user",
-            content: JSON.stringify({
-              title: p.title,
-              brief: p.brief,
-              memory: editorial.knowledgeFor(w.state, "researcher"),
-              allowedProviders: allowed,
-              decisions: contextPolicy.decisions(p),
-              conversation: contextPolicy.history(
-                p.messages,
-                "researcher",
-                p.title + " " + p.brief,
-              ),
-              ...(previousQuery
-                ? {
-                    previousQuery,
-                    feedback:
-                      "Nenhum registro encontrado. Reformule a consulta.",
-                  }
-                : {}),
-            }),
-          },
-        ],
-        signal,
-      });
-      step.model = result.model;
-      step.usage = result.usage;
-      if (result.contextUsage) step.contextUsage = result.contextUsage;
-      if (result.finishReason) step.finishReason = result.finishReason;
-      session.artifacts.responses ||= [];
-      session.artifacts.responses.push({
-        id: step.id,
+      const result = await completeWithLimitRecovery({
+        session,
+        step,
         role: "researcher",
         phase: "search",
-        content: result.content,
-        at: now(),
+        save,
+        signal,
+        initialLimit:
+          session.artifacts.partial?.phase === "search"
+            ? 2400
+            : contextPolicy.outputLimits.search,
+        limit: 2400,
+        request: {
+          key: w.secrets?.openrouter,
+          model: step.model,
+          system: searchInstructions,
+          messages: [
+            {
+              role: "user",
+              content: JSON.stringify({
+                title: p.title,
+                brief: p.brief,
+                memory: editorial.knowledgeFor(w.state, "researcher"),
+                allowedProviders: allowed,
+                decisions: contextPolicy.decisions(p),
+                conversation: contextPolicy.history(
+                  p.messages,
+                  "researcher",
+                  p.title + " " + p.brief,
+                ),
+                ...(previousQuery
+                  ? {
+                      previousQuery,
+                      feedback:
+                        "Nenhum registro encontrado. Reformule a consulta.",
+                    }
+                  : {}),
+              }),
+            },
+          ],
+        },
       });
-      persist(save, session, {
-        kind: "tool_result",
-        role: "researcher",
-        title: "Resposta do modelo salva",
-        detail: result.usage?.total_tokens
-          ? `${result.usage.total_tokens} tokens informados pelo modelo.`
-          : "Plano recebido para validação.",
-      });
-      if (result.finishReason === "length") {
-        session.artifacts.partial = {
-          role: "researcher",
-          phase: "search",
-          content: result.content,
-          usage: result.usage,
-          at: now(),
-        };
-        save();
-        throw Error(
-          "O plano de pesquisa atingiu o limite. A resposta e o consumo foram preservados; retome para tentar com um limite maior.",
-        );
-      }
       signal?.throwIfAborted();
       let plan;
       try {
@@ -378,6 +353,96 @@ function addUsage(target, usage = {}) {
   for (const [key, value] of Object.entries(usage))
     if (typeof value === "number") target[key] = (target[key] || 0) + value;
   return target;
+}
+async function completeWithLimitRecovery({
+  session,
+  step,
+  role,
+  phase,
+  save,
+  signal,
+  request,
+  initialLimit,
+  limit,
+}) {
+  const limits = [...new Set([Math.min(initialLimit, limit), limit])];
+  for (const [index, maxTokens] of limits.entries()) {
+    signal?.throwIfAborted();
+    const retrying =
+      index > 0 ||
+      (session.artifacts.partial?.role === role &&
+        session.artifacts.partial?.phase === phase);
+    const result = await providers.complete({
+      ...request,
+      system:
+        request.system +
+        (retrying
+          ? phase === "search"
+            ? "\nA tentativa anterior atingiu o limite. Retorne somente o JSON completo com uma consulta concisa."
+            : "\nA tentativa anterior atingiu o limite. Responda por inteiro, com concisão, sem omitir fatos, referências ou ressalvas essenciais."
+          : ""),
+      maxTokens,
+      allowPartial: true,
+      signal,
+    });
+    step.model = result.model || step.model;
+    step.usage = addUsage(step.usage || {}, result.usage);
+    if (result.contextUsage) step.contextUsage = result.contextUsage;
+    if (result.finishReason) step.finishReason = result.finishReason;
+    session.artifacts.responses ||= [];
+    session.artifacts.responses.push({
+      id: index ? crypto.randomUUID() : step.id,
+      ...(index ? { parentId: step.id } : {}),
+      role,
+      ...(phase ? { phase } : {}),
+      content: result.content,
+      usage: result.usage,
+      finishReason: result.finishReason,
+      at: now(),
+    });
+    persist(save, session, {
+      kind: "tool_result",
+      role,
+      title: "Resposta do modelo salva",
+      detail: result.usage?.total_tokens
+        ? `${result.usage.total_tokens} tokens informados pelo modelo.`
+        : "O conteúdo foi preservado antes da validação da etapa.",
+    });
+    if (result.finishReason !== "length") {
+      signal?.throwIfAborted();
+      if (
+        session.artifacts.partial?.role === role &&
+        session.artifacts.partial?.phase === phase
+      )
+        delete session.artifacts.partial;
+      return result;
+    }
+    session.artifacts.partial = {
+      role,
+      ...(phase ? { phase } : {}),
+      content: result.content,
+      usage: result.usage,
+      at: now(),
+    };
+    persist(save, session, {
+      kind: "status",
+      role,
+      title:
+        index < limits.length - 1
+          ? "Nova tentativa automática"
+          : "Limite máximo atingido",
+      detail:
+        index < limits.length - 1
+          ? `A resposta foi interrompida; o aplicativo tentará novamente com limite de ${limits[index + 1]} tokens.`
+          : "A resposta parcial e o consumo estão salvos no workspace.",
+    });
+    signal?.throwIfAborted();
+  }
+  throw Error(
+    phase === "search"
+      ? "O plano de pesquisa atingiu o limite máximo. A resposta parcial e o consumo foram salvos. Oriente uma consulta mais curta ou escolha outro modelo antes de retomar."
+      : "A resposta atingiu o limite máximo. O texto parcial e o consumo foram salvos. Oriente uma resposta mais curta ou escolha outro modelo antes de retomar.",
+  );
 }
 async function validatedSocial({
   w,
@@ -503,7 +568,11 @@ async function generate(
       );
     const previousAttempt = previousResponse?.content;
     const recoveredSocial =
-      role === "social" && reuseSavedSocial && previousAttempt
+      role === "social" &&
+      reuseSavedSocial &&
+      previousAttempt &&
+      previousResponse.finishReason !== "length" &&
+      session.artifacts.partial?.role !== "social"
         ? socialOutput.fitLengths(previousAttempt)
         : null;
     const run = startStep(
@@ -550,19 +619,31 @@ async function generate(
           },
     );
     try {
-      const result = recoveredSocial
+      const localResult = recoveredSocial || isDemo(w);
+      const result = localResult
         ? {
-            content: JSON.stringify(recoveredSocial),
+            content: recoveredSocial
+              ? JSON.stringify(recoveredSocial)
+              : demoOutput(role, p.title),
             model: run.model,
             usage: {},
           }
-        : isDemo(w)
-          ? {
-              content: demoOutput(role, p.title),
-              model: "Demonstração local",
-              usage: {},
-            }
-          : await providers.complete({
+        : await completeWithLimitRecovery({
+            session,
+            step: run,
+            role,
+            save,
+            signal,
+            initialLimit:
+              session.artifacts.partial?.role === role
+                ? 9000
+                : Math.min(
+                    9000,
+                    contextPolicy.outputLimits[role] *
+                      (previousResponse ? 1.5 : 1),
+                  ),
+            limit: 9000,
+            request: {
               key: w.secrets?.openrouter,
               model: run.model,
               system:
@@ -570,45 +651,28 @@ async function generate(
                 (session.mode === "adapt"
                   ? "\nAdapte somente o material existente. Não acrescente fatos nem alegue nova pesquisa."
                   : ""),
-              maxTokens: Math.min(
-                9000,
-                contextPolicy.outputLimits[role] * (previousResponse ? 1.5 : 1),
-              ),
-              allowPartial: true,
               messages: [{ role: "user", content: context }],
               ...(role === "social"
                 ? { responseFormat: socialOutput.responseFormat }
                 : {}),
-              signal,
-            });
-      run.model = result.model;
-      run.usage = result.usage;
-      if (result.contextUsage) run.contextUsage = result.contextUsage;
-      if (result.finishReason) run.finishReason = result.finishReason;
-      session.artifacts.responses ||= [];
-      session.artifacts.responses.push({
-        id: run.id,
-        role,
-        content: result.content,
-        at: now(),
-      });
-      persist(save, session, {
-        kind: "tool_result",
-        role,
-        title: "Resposta do modelo salva",
-        detail: "O conteúdo foi preservado antes da validação da etapa.",
-      });
-      if (result.finishReason === "length") {
-        session.artifacts.partial = {
+            },
+          });
+      signal?.throwIfAborted();
+      if (localResult) {
+        run.usage = result.usage;
+        session.artifacts.responses ||= [];
+        session.artifacts.responses.push({
+          id: run.id,
           role,
           content: result.content,
           at: now(),
-          usage: result.usage,
-        };
-        save();
-        throw Error(
-          "A resposta atingiu o limite. O texto parcial e o consumo foram salvos; retomar aumentará o limite desta etapa.",
-        );
+        });
+        persist(save, session, {
+          kind: "tool_result",
+          role,
+          title: "Resposta do modelo salva",
+          detail: "O conteúdo foi preservado antes da validação da etapa.",
+        });
       }
       if (role === "researcher") {
         dossier = result.content;
@@ -640,6 +704,7 @@ async function generate(
           signal,
           save,
         });
+        signal?.throwIfAborted();
         revisionSchema.parse({
           id: "validation",
           createdAt: "now",
@@ -678,8 +743,8 @@ async function generate(
         kind: "output",
         role,
         title: `${roleNames[role]} concluiu a etapa`,
-        detail: result.usage?.total_tokens
-          ? `${result.usage.total_tokens} tokens informados pelo modelo.`
+        detail: run.usage?.total_tokens
+          ? `${run.usage.total_tokens} tokens informados pelo modelo.`
           : "Resultado salvo no workspace.",
       });
     } catch (error) {

@@ -434,52 +434,81 @@ const actions = {
     delete userMessage.error;
     w.save();
     try {
-      const result =
-        testMode && w.state.settings.demo
-          ? {
-              content:
-                "Sua orientação ficou registrada. Ao gerar uma revisão, os agentes receberão as mensagens recentes.",
-            }
-          : await providers.complete({
-              key: w.secrets?.openrouter,
-              model:
-                w.state.settings.models[
-                  editorial.channels(p).includes("blog") ? "writer" : "social"
-                ],
-              signal: operations.signal,
-              system:
-                chatInstruction +
-                "\n\nContexto editorial deste projeto:\n" +
-                JSON.stringify({
-                  brief: p.brief,
-                  decisions: require("../core/context.cjs").decisions(p),
-                  revision: (() => {
-                    const saved = current(p);
-                    const draft = require("../core/drafts.cjs").readDraft(
-                      w,
-                      p.id,
-                    );
-                    return draft?.baseRevisionId === (saved?.id || null)
-                      ? { ...saved, ...draft.content, workingDraft: true }
-                      : saved;
-                  })(),
-                  memory: editorial.knowledgeFor(
-                    w.state,
-                    editorial.channels(p).includes("blog")
-                      ? "writer"
-                      : "social",
-                  ),
-                }),
-              messages: [
-                ...require("../core/context.cjs").history(
-                  p.messages.filter((m) => m !== userMessage),
-                  "chat",
-                  message,
-                ),
-                { role: "user", content: message },
-              ],
-              maxTokens: 2000,
-            });
+      let result;
+      if (testMode && w.state.settings.demo)
+        result = {
+          content:
+            "Sua orientação ficou registrada. Ao gerar uma revisão, os agentes receberão as mensagens recentes.",
+        };
+      else {
+        const request = {
+          key: w.secrets?.openrouter,
+          model:
+            w.state.settings.models[
+              editorial.channels(p).includes("blog") ? "writer" : "social"
+            ],
+          signal: operations.signal,
+          system:
+            chatInstruction +
+            "\n\nContexto editorial deste projeto:\n" +
+            JSON.stringify({
+              brief: p.brief,
+              decisions: require("../core/context.cjs").decisions(p),
+              revision: (() => {
+                const saved = current(p);
+                const draft = require("../core/drafts.cjs").readDraft(w, p.id);
+                return draft?.baseRevisionId === (saved?.id || null)
+                  ? { ...saved, ...draft.content, workingDraft: true }
+                  : saved;
+              })(),
+              memory: editorial.knowledgeFor(
+                w.state,
+                editorial.channels(p).includes("blog") ? "writer" : "social",
+              ),
+            }),
+          messages: [
+            ...require("../core/context.cjs").history(
+              p.messages.filter((m) => m !== userMessage),
+              "chat",
+              message,
+            ),
+            { role: "user", content: message },
+          ],
+          allowPartial: true,
+        };
+        const limits = userMessage.partialLengthReached ? [4000] : [2000, 4000];
+        for (const [index, maxTokens] of limits.entries()) {
+          operations.signal?.throwIfAborted();
+          result = await providers.complete({
+            ...request,
+            system:
+              request.system +
+              (maxTokens > 2000
+                ? "\nA tentativa anterior atingiu o limite. Responda por inteiro e com concisão."
+                : ""),
+            maxTokens,
+          });
+          userMessage.usage ||= {};
+          for (const [key, value] of Object.entries(result.usage || {}))
+            if (typeof value === "number")
+              userMessage.usage[key] = (userMessage.usage[key] || 0) + value;
+          if (result.finishReason === "length") {
+            userMessage.partialResponse = result.content;
+            userMessage.partialLengthReached = true;
+            w.save();
+            operations.signal?.throwIfAborted();
+            if (index === limits.length - 1)
+              throw Error(
+                "A resposta da conversa atingiu o limite máximo. Peça uma resposta mais curta ou escolha outro modelo e tente novamente.",
+              );
+            continue;
+          }
+          delete userMessage.partialResponse;
+          delete userMessage.partialLengthReached;
+          result.usage = userMessage.usage;
+          break;
+        }
+      }
       operations.signal?.throwIfAborted();
       userMessage.status = "completed";
       p.messages.push({

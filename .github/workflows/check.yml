@@ -38,6 +38,8 @@ jobs:
       - if: matrix.platform == 'windows'
         run: npm run test:timeline-desktop
       - if: matrix.platform == 'windows'
+        run: npm run test:chat-desktop
+      - if: matrix.platform == 'windows'
         run: npx electron-builder --win portable --x64 --publish never
       - if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/v')
         name: Upload Windows release asset

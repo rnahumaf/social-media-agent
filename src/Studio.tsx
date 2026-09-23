@@ -1051,11 +1051,41 @@ export default function App() {
                         {m.role === "user" ? "Você" : "Assistente"}
                       </strong>
                       <pre className="prose">{m.content}</pre>
-                      {["failed", "cancelled"].includes(m.status || "") && (
+                      {["failed", "cancelled", "interrupted"].includes(
+                        m.status || "",
+                      ) && (
                         <small>
                           Resposta não concluída. Sua mensagem foi preservada.
                         </small>
                       )}
+                      {m.role === "user" &&
+                        m.requestId &&
+                        ["failed", "cancelled", "interrupted"].includes(
+                          m.status || "",
+                        ) && (
+                          <div className="chat-retry">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={async () => {
+                                if (
+                                  await act("chat", {
+                                    id,
+                                    message: m.content,
+                                    requestId: m.requestId,
+                                  })
+                                ) {
+                                  if (chatRequest.current?.id === m.requestId) {
+                                    chatRequest.current = null;
+                                    setMessage("");
+                                  }
+                                }
+                              }}
+                            >
+                              Tentar responder novamente
+                            </button>
+                          </div>
+                        )}
                     </article>
                   ))}
               </div>

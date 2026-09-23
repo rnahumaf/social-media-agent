@@ -1,16 +1,16 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.6 — versão pública de testes.**
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.7 — versão pública de testes.**
 
 ## Experimentar
 
-Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.6](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.6):
+Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.7](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.7):
 
 | Sistema                                                          | Download                                                                                                                                                                           |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.6 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.6/Social.Media.Agent.0.1.0-beta.6.exe)                 |
-| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.6 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.6/Social.Media.Agent-0.1.0-beta.6-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.6 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.6/Social.Media.Agent-0.1.0-beta.6-mac.zip)               |
+| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.7 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.7/Social.Media.Agent.0.1.0-beta.7.exe)                 |
+| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.7 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.7/Social.Media.Agent-0.1.0-beta.7-arm64-mac.zip) |
+| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.7 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.7/Social.Media.Agent-0.1.0-beta.7-mac.zip)               |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 
@@ -30,7 +30,7 @@ npm start
 - Electron com React/TypeScript, preload restrito, isolamento de contexto e sandbox.
 - Pasta independente da instalação, SQLite portável, histórico de mensagens, execuções e revisões.
 - Fluxo com modelos individuais, catálogo OpenRouter e registro de consumo. Blog dispensa a etapa social; Instagram pode partir do briefing e das fontes, sem gerar artigo. Gerar um canal preserva o outro.
-- Painel compacto de atividade com etapas, ferramentas e resultados persistidos. Falhas ficam pausadas e podem ser retomadas do último ponto salvo, com uma nova orientação do usuário.
+- Painel compacto de atividade com etapas, ferramentas e resultados persistidos. Respostas que atingem o limite recebem uma tentativa automática com limite maior; falhas restantes ficam pausadas e podem ser retomadas do último ponto salvo, com uma nova orientação do usuário.
 - Saída estruturada do carrossel com JSON Schema, correção automática e ajuste local de último recurso para limites de 90 e 420 caracteres. A resposta original permanece no histórico.
 - PubMed E-utilities e web aberta por OpenRouter/Exa. O pesquisador escolhe entre ferramentas permitidas por workspace ou pauta. Consultas, fontes e tipo de acesso ficam registrados; ausência de fontes interrompe a geração.
 - Área **Conhecimento** para preferências gerais, orientações por canal e exemplos de escrita, salvos no workspace.
@@ -53,7 +53,7 @@ Os conectores usam aprovação explícita por revisão e destino. O histórico d
 
 1. Em **Modelos e conexões**, informe a senha-mestra e a chave OpenRouter no cofre.
 2. Carregue o catálogo, selecione os modelos e salve. Em **Conhecimento**, registre suas preferências. Em **Ferramentas de pesquisa**, permita PubMed, web aberta ou ambos; a pauta pode ter sua própria seleção.
-3. Descreva o tema, o público e o objetivo da pauta. O pesquisador escolhe a ferramenta e formula a consulta; sem fontes, reformula uma vez antes de interromper. As consultas ficam em **Fontes**. O OpenRouter recebe briefing, fontes e preferências; PubMed recebe a consulta, e buscas web usam OpenRouter/Exa. Há limite de 5.000 tokens de saída por chamada e limites por busca web; não há orçamento monetário rígido nesta beta.
+3. Descreva o tema, o público e o objetivo da pauta. O pesquisador escolhe a ferramenta e formula a consulta; sem fontes, reformula uma vez antes de interromper. As consultas ficam em **Fontes**. O OpenRouter recebe briefing, fontes e preferências; PubMed recebe a consulta, e buscas web usam OpenRouter/Exa. Os limites de saída variam por etapa e chegam a 9.000 tokens na geração e revisão após uma resposta truncada; não há orçamento monetário rígido nesta beta.
 4. Para WordPress.com, clique em **Conectar WordPress.com** e autorize seu site no navegador. Para hospedagem própria, configure URL HTTPS, usuário e Application Password. Para Blogger, use **Conectar Blogger com Google** e selecione seu blog.
 5. Para Instagram, desbloqueie o cofre e clique em **Conectar Instagram**. Use uma conta profissional de criador ou empresa. O usuário autoriza perfil e publicação no navegador, sem copiar IDs ou tokens. O serviço está implantado no Cloudflare e hospeda os JPEGs temporariamente para o processamento da Meta. O acesso de contas sem função no aplicativo será liberado quando a Meta concluir a análise de acesso.
 6. Em **Revisar e publicar**, confira o artigo formatado, os cards e a legenda dos canais selecionados. Aprove e publique cada destino separadamente. Conectar duas contas não obriga publicar em ambas. O aplicativo hospeda os cards temporariamente e a confirmação nativa mostra a ação antes do envio. Workspaces conectados em versões anteriores precisam reconectar o Instagram uma vez.
@@ -77,6 +77,7 @@ npm test
 npm run build
 npx electron tests/desktop-smoke.cjs
 npm run test:editorial-desktop
+npm run test:chat-desktop
 npm run package:win
 # Executar em macOS:
 npm run package:mac

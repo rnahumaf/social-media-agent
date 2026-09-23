@@ -75,9 +75,17 @@ async function request(url, options = {}) {
 const modelWindows = new Map();
 async function models() {
   const data = await request("https://openrouter.ai/api/v1/models");
-  for (const m of data.data)
+  if (!Array.isArray(data?.data) || !data.data.length)
+    throw Error("O OpenRouter retornou um catálogo de modelos inválido.");
+  const available = data.data.filter(
+    (m) => m && typeof m.id === "string" && m.id,
+  );
+  if (!available.length)
+    throw Error("O OpenRouter retornou um catálogo de modelos inválido.");
+  modelWindows.clear();
+  for (const m of available)
     if (m.context_length) modelWindows.set(m.id, m.context_length);
-  return data.data
+  return available
     .filter(
       (m) => m.architecture?.output_modalities?.includes("text") !== false,
     )
@@ -145,12 +153,28 @@ async function complete({
     }),
     signal,
   });
-  const choice = data.choices?.[0];
+  const choice = data?.choices?.[0];
+  if (
+    !choice ||
+    (choice.message == null && choice.finish_reason !== "length") ||
+    (choice.message != null && typeof choice.message !== "object")
+  )
+    throw Error(
+      "O OpenRouter retornou uma resposta incompleta. Tente novamente; as etapas concluídas foram preservadas.",
+    );
+  if (
+    choice.finish_reason &&
+    !["stop", "length"].includes(choice.finish_reason)
+  )
+    throw Error(
+      "O modelo encerrou a resposta sem concluir a etapa. Tente outro modelo ou ajuste a orientação.",
+    );
   if (choice?.finish_reason === "length" && !allowPartial)
     throw Error(
       "O modelo consumiu o limite antes de concluir a resposta. Tente novamente; o trabalho concluído foi preservado.",
     );
-  const raw = choice?.message?.content;
+  const message = choice.message || {};
+  const raw = message.content;
   const content = Array.isArray(raw)
     ? raw
         .filter(
@@ -168,9 +192,9 @@ async function complete({
     );
   return {
     content,
-    model: data.model,
+    model: data.model || model,
     usage: data.usage || {},
-    annotations: choice.message.annotations || [],
+    annotations: Array.isArray(message.annotations) ? message.annotations : [],
     finishReason: choice.finish_reason,
     contextUsage,
   };
@@ -185,7 +209,11 @@ async function pubmed(query, signal) {
       encodeURIComponent(query),
     { signal },
   );
-  const ids = search.esearchresult?.idlist || [];
+  const ids = search?.esearchresult?.idlist;
+  if (search?.esearchresult?.ERROR || !Array.isArray(ids))
+    throw Error(
+      "O PubMed retornou uma busca inválida. Tente novamente mais tarde.",
+    );
   if (!ids.length) return [];
   await new Promise((r) => setTimeout(r, 400));
   const xml = await response(
@@ -199,8 +227,12 @@ async function pubmed(query, signal) {
   );
   const doc = new XMLParser({ ignoreAttributes: false }).parse(xml);
   const articles = doc.PubmedArticleSet?.PubmedArticle;
-  return (Array.isArray(articles) ? articles : [articles])
-    .filter(Boolean)
+  if (!articles)
+    throw Error(
+      "O PubMed não retornou os registros anunciados pela busca. Tente novamente mais tarde.",
+    );
+  const sources = (Array.isArray(articles) ? articles : [articles])
+    .filter((a) => a?.MedlineCitation?.PMID && a.MedlineCitation.Article)
     .map((a) => {
       const c = a.MedlineCitation,
         article = c.Article;
@@ -221,6 +253,11 @@ async function pubmed(query, signal) {
         retrievedAt: new Date().toISOString(),
       };
     });
+  if (!sources.length)
+    throw Error(
+      "O PubMed retornou registros sem dados bibliográficos válidos. Tente novamente mais tarde.",
+    );
+  return sources;
 }
 async function web(query, { key, model, signal }) {
   const result = await complete({

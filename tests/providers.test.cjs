@@ -1,6 +1,6 @@
 const test = require("node:test"),
   assert = require("node:assert/strict");
-const { complete, pubmed } = require("../core/providers.cjs");
+const { complete, models, pubmed } = require("../core/providers.cjs");
 test("OpenRouter keeps the selected model and permits provider failover", async () => {
   const original = global.fetch;
   global.fetch = async (url, options) => {
@@ -202,6 +202,96 @@ test("text content parts are normalized into the final response", async () => {
       messages: [],
     });
     assert.equal(result.content, "Resposta completa");
+  } finally {
+    global.fetch = original;
+  }
+});
+
+test("an incomplete or filtered OpenRouter response reports a service error", async () => {
+  const original = global.fetch;
+  try {
+    for (const payload of [
+      { choices: [] },
+      {
+        choices: [
+          {
+            message: { content: "Texto parcial" },
+            finish_reason: "content_filter",
+          },
+        ],
+      },
+    ]) {
+      global.fetch = async () => Response.json(payload);
+      await assert.rejects(
+        complete({
+          key: "fixture",
+          model: "fixture/model",
+          system: "Teste",
+          messages: [],
+        }),
+        /resposta incompleta|sem concluir a etapa/,
+      );
+    }
+  } finally {
+    global.fetch = original;
+  }
+});
+
+test("a length response without a message keeps usage for automatic recovery", async () => {
+  const original = global.fetch;
+  global.fetch = async () =>
+    Response.json({
+      choices: [{ finish_reason: "length" }],
+      usage: { total_tokens: 90 },
+    });
+  try {
+    const result = await complete({
+      key: "fixture",
+      model: "fixture/model",
+      system: "Teste",
+      messages: [],
+      allowPartial: true,
+    });
+    assert.equal(result.content, "");
+    assert.equal(result.finishReason, "length");
+    assert.equal(result.usage.total_tokens, 90);
+  } finally {
+    global.fetch = original;
+  }
+});
+
+test("PubMed malformed search data is not mistaken for zero results", async () => {
+  const original = global.fetch;
+  try {
+    for (const idlist of [undefined, []]) {
+      global.fetch = async () =>
+        Response.json({ esearchresult: { ERROR: "fixture", idlist } });
+      await assert.rejects(pubmed("fixture"), /busca inválida/);
+    }
+  } finally {
+    global.fetch = original;
+  }
+});
+
+test("PubMed missing fetched articles is reported as a service failure", async () => {
+  const original = global.fetch;
+  let calls = 0;
+  global.fetch = async () =>
+    ++calls === 1
+      ? Response.json({ esearchresult: { idlist: ["123"] } })
+      : new Response("<Error>missing fixture articles</Error>");
+  try {
+    await assert.rejects(pubmed("fixture"), /não retornou os registros/);
+  } finally {
+    global.fetch = original;
+  }
+});
+
+test("an invalid OpenRouter model catalog has a clear error", async () => {
+  const original = global.fetch;
+  global.fetch = async () => Response.json({ error: "fixture" });
+  try {
+    await assert.rejects(models(), /catálogo de modelos inválido/);
   } finally {
     global.fetch = original;
   }

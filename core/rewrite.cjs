@@ -61,12 +61,11 @@ async function rewrite(w, payload, signal) {
   });
   w.save();
   try {
-    const result = await providers.complete({
+    const request = {
       key: w.secrets.openrouter,
       model: run.model,
       signal,
       allowPartial: true,
-      maxTokens: input.target === "article" ? 6000 : 2200,
       system: `${naturalWriting}\nReescreva somente ${input.target === "article" ? "o artigo para BLOG em Markdown; não inclua legenda, cards nem hashtags" : input.target === "caption" ? "a legenda do INSTAGRAM, com até 2200 caracteres" : "o card do INSTAGRAM, retornando JSON com title de até 90 e body de até 420 caracteres"}. Use apenas o conteúdo fornecido. Não invente fontes ou acrescente fatos. Não faça pesquisa externa.\n${input.target === "card" ? cardFormattingInstructions : ""}\nPreferências do autor:\n${knowledgeFor(w.state, role)}`,
       messages: [
         {
@@ -97,24 +96,48 @@ async function rewrite(w, payload, signal) {
             },
           }
         : {}),
-    });
-    signal?.throwIfAborted();
-    run.usage = result.usage;
-    if (result.contextUsage) run.contextUsage = result.contextUsage;
-    if (result.finishReason) run.finishReason = result.finishReason;
-    if (result.finishReason === "length") {
-      p.messages.push({
-        role: "assistant",
-        agent: role,
-        internal: true,
-        partial: true,
-        target: input.target,
-        content: result.content,
-        at: new Date().toISOString(),
+    };
+    const limits = input.target === "article" ? [6000, 9000] : [2200, 4500];
+    let result;
+    for (const [index, maxTokens] of limits.entries()) {
+      signal?.throwIfAborted();
+      result = await providers.complete({
+        ...request,
+        system:
+          request.system +
+          (index
+            ? "\nA tentativa anterior atingiu o limite. Retorne a sugestão integral com concisão, preservando o significado."
+            : ""),
+        maxTokens,
       });
-      throw Error(
-        "A reescrita atingiu o limite. O texto parcial foi salvo no histórico; reduza o trecho para tentar novamente.",
-      );
+      run.usage ||= {};
+      for (const [key, value] of Object.entries(result.usage || {}))
+        if (typeof value === "number")
+          run.usage[key] = (run.usage[key] || 0) + value;
+      run.model = result.model || run.model;
+      if (result.contextUsage) run.contextUsage = result.contextUsage;
+      if (result.finishReason) run.finishReason = result.finishReason;
+      if (result.finishReason === "length") {
+        p.messages.push({
+          role: "assistant",
+          agent: role,
+          internal: true,
+          partial: true,
+          target: input.target,
+          content: result.content,
+          usage: result.usage,
+          at: new Date().toISOString(),
+        });
+        w.save();
+        signal?.throwIfAborted();
+        if (index === limits.length - 1)
+          throw Error(
+            "A reescrita atingiu o limite máximo. O texto parcial e o consumo foram salvos; reduza o trecho ou escolha outro modelo.",
+          );
+        continue;
+      }
+      signal?.throwIfAborted();
+      break;
     }
     const value =
       input.target === "card"
@@ -132,8 +155,6 @@ async function rewrite(w, payload, signal) {
             .max(input.target === "caption" ? 2200 : 200000)
             .parse(result.content);
     run.status = "completed";
-    run.usage = result.usage;
-    run.model = result.model;
     p.messages.push({
       role: "assistant",
       agent: role,

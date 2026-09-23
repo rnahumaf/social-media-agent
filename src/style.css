@@ -1547,6 +1547,9 @@ h3 {
   padding: 20px;
   border-radius: 6px;
 }
+.chat-retry {
+  margin-top: 10px;
+}
 .prose {
   white-space: pre-wrap;
   font:

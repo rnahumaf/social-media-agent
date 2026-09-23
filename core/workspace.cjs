@@ -204,6 +204,16 @@ function migrateSessions(state) {
   }
   return state;
 }
+function recoverInterruptedMessages(state) {
+  for (const p of state.projects)
+    for (const message of p.messages)
+      if (message.role === "user" && message.status === "sending") {
+        message.status = "interrupted";
+        message.error =
+          "O aplicativo foi fechado antes de concluir a resposta. A mensagem pode ser retomada.";
+      }
+  return state;
+}
 function recoverTruncatedCarousels(state) {
   const { fitLengths } = require("./social-output.cjs");
   for (const p of state.projects) {
@@ -356,9 +366,11 @@ class Workspace {
       );
       const result = db.exec("SELECT data FROM workspace WHERE id=1");
       const state = result.length
-        ? recoverTruncatedCarousels(
-            migrateSessions(
-              stateSchema.parse(JSON.parse(result[0].values[0][0])),
+        ? recoverInterruptedMessages(
+            recoverTruncatedCarousels(
+              migrateSessions(
+                stateSchema.parse(JSON.parse(result[0].values[0][0])),
+              ),
             ),
           )
         : initial({ demo: testMode });

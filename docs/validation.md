@@ -1,5 +1,19 @@
 # Validação da beta — 14/09/2026
 
+## Recuperação de respostas e auditoria — 0.1.0-beta.7
+
+Checklist de falhas reproduzidas com respostas controladas e corrigidas:
+
+- [x] Fluxo só de blog: respostas truncadas nas evidências e na revisão causavam pausas sucessivas. Cada etapa agora tenta novamente uma vez com limite maior, preserva o texto e o consumo de cada chamada e só pausa após esgotar o limite da etapa.
+- [x] Plano de busca truncado: uma nova tentativa usa consulta concisa; a retomada mantém a pesquisa no ponto salvo.
+- [x] OpenRouter: catálogo inválido, resposta incompleta, resposta filtrada e mensagem vazia agora produzem erros explícitos, sem serem confundidos com resultado concluído.
+- [x] PubMed: falhas no JSON de busca ou no XML dos registros não são interpretadas como ausência de fontes.
+- [x] Social: JSON salvo com `finish_reason=length` não é reutilizado como carrossel completo na retomada.
+- [x] Reescrita e conversa: respostas truncadas recebem nova tentativa com consumo somado. Mensagens de conversa interrompidas ao fechar o aplicativo reaparecem com ação de repetir, sem duplicar o pedido.
+- [x] Cancelamento no fim da execução: uma revisão já concluída e salva permanece acessível.
+
+O núcleo passou em 139 testes automatizados; build TypeScript/Vite e aceites Electron do chat, da timeline e do fluxo editorial passaram localmente. A CI executa também o novo aceite de chat no Windows e empacota Windows e macOS. Chamadas pagas reais ao OpenRouter não foram feitas nessa auditoria.
+
 ## Ajustes editoriais do beta desktop — código atual
 
 O núcleo passou em 76 testes. O build TypeScript/Vite e os dois smokes Electron passaram no Windows: `npm run test:desktop` e `npm run test:editorial-desktop`. O build informa o tamanho do bundle do editor e ignora uma diretiva `use client` do Tiptap; não houve erro de compilação.

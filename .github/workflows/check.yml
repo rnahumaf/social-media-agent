@@ -1,7 +1,20 @@
-name: Beta checks
-on: [push, pull_request, workflow_dispatch]
+name: Beta checks and release
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publicar a versão de package.json após validar os pacotes
+        type: boolean
+        required: true
+        default: false
 permissions:
-  contents: write
+  contents: read
+concurrency:
+  group: beta-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 jobs:
   check:
     strategy:
@@ -20,6 +33,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - if: github.event_name == 'workflow_dispatch'
+        name: Confirm release branch
+        shell: bash
+        run: test "$GITHUB_REF" = "refs/heads/main"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,7 +45,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm audit --omit=dev
-      - run: npx install-electron
+      - if: matrix.platform == 'windows' || github.event_name == 'workflow_dispatch'
+        run: npx install-electron
       - if: matrix.platform == 'windows'
         run: npm run test:desktop
       - if: matrix.platform == 'windows'
@@ -39,37 +57,70 @@ jobs:
         run: npm run test:timeline-desktop
       - if: matrix.platform == 'windows'
         run: npm run test:chat-desktop
-      - if: matrix.platform == 'windows'
+      - if: matrix.platform == 'windows' && github.event_name == 'workflow_dispatch'
         run: npx electron-builder --win portable --x64 --publish never
-      - if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/v')
-        name: Upload Windows release asset
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          Get-ChildItem -LiteralPath release -Filter *.exe -File | ForEach-Object {
-            gh release upload $env:GITHUB_REF_NAME $_.FullName --clobber
-          }
-      - if: matrix.platform == 'macos' && matrix.arch == 'arm64'
+      - if: matrix.platform == 'macos' && matrix.arch == 'arm64' && github.event_name == 'workflow_dispatch'
         run: npx electron-builder --mac zip --arm64 --publish never
-      - if: matrix.platform == 'macos' && matrix.arch == 'x64'
+      - if: matrix.platform == 'macos' && matrix.arch == 'x64' && github.event_name == 'workflow_dispatch'
         run: npx electron-builder --mac zip --x64 --publish never
-      - if: matrix.platform == 'macos'
+      - if: matrix.platform == 'macos' && github.event_name == 'workflow_dispatch'
         name: Verify macOS 12 minimum version
         shell: bash
         run: |
           app_path="$(find release -maxdepth 2 -type d -name 'Social Media Agent.app' -print -quit)"
           test -n "$app_path"
           test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app_path/Contents/Info.plist")" = "12.0"
-      - if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/v')
-        name: Upload macOS release asset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$GITHUB_REF_NAME" release/*.zip --clobber
-      - uses: actions/upload-artifact@v4
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
         with:
           name: beta-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
             release/*.exe
             release/*.zip
+          if-no-files-found: error
           retention-days: 7
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: beta-*
+          path: release
+          merge-multiple: true
+      - name: Verify packages and write checksums
+        run: node scripts/verify-release-assets.cjs release
+      - if: inputs.publish
+        name: Publish beta
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "A release $tag já existe."
+            exit 1
+          fi
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
+            echo "A tag $tag já existe."
+            exit 1
+          fi
+          gh release create "$tag" release/* \
+            --target "$GITHUB_SHA" \
+            --title "Social Media Agent $version" \
+            --prerelease --latest=false \
+            --generate-notes --fail-on-no-commits
+          url="$(gh release view "$tag" --json url --jq .url)"
+          echo "Release publicada: $url" >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !inputs.publish }}
+        name: Dry run summary
+        run: echo "Pacotes e checksums validados; nenhuma release foi publicada." >> "$GITHUB_STEP_SUMMARY"

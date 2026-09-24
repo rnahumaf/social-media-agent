@@ -1,20 +1,20 @@
 # Social Media Agent
 
-Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **0.1.0-beta.7 — versão pública de testes.**
+Aplicativo desktop de produção editorial com pesquisa, artigo, carrossel e aprovação humana. **Beta pública.**
 
 ## Experimentar
 
-Baixe a versão adequada diretamente na [página da versão 0.1.0-beta.7](https://github.com/rnahumaf/social-media-agent/releases/tag/v0.1.0-beta.7):
+Baixe a versão mais recente na [página de versões](https://github.com/rnahumaf/social-media-agent/releases). Escolha o arquivo conforme seu sistema:
 
-| Sistema                                                          | Download                                                                                                                                                                           |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Windows 10/11, 64 bits                                           | [Social Media Agent 0.1.0-beta.7 para Windows](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.7/Social.Media.Agent.0.1.0-beta.7.exe)                 |
-| macOS 12 ou posterior com chip Apple M1, M2, M3, M4 ou posterior | [Social Media Agent 0.1.0-beta.7 para Apple Silicon](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.7/Social.Media.Agent-0.1.0-beta.7-arm64-mac.zip) |
-| macOS 12 ou posterior com processador Intel                      | [Social Media Agent 0.1.0-beta.7 para Intel](https://github.com/rnahumaf/social-media-agent/releases/download/v0.1.0-beta.7/Social.Media.Agent-0.1.0-beta.7-mac.zip)               |
+| Sistema                                              | Arquivo                                     |
+| ---------------------------------------------------- | ------------------------------------------- |
+| Windows 10/11, 64 bits                               | `Social.Media.Agent.<versão>.exe`           |
+| macOS 12 ou posterior com chip Apple M1 ou posterior | `Social.Media.Agent-<versão>-arm64-mac.zip` |
+| macOS 12 ou posterior com processador Intel          | `Social.Media.Agent-<versão>-mac.zip`       |
 
 No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
 
-Os ajustes editoriais descritos abaixo estão no código atual; os downloads acima correspondem à release já publicada. Ao abrir o aplicativo, escolha uma pasta vazia para o workspace. Em **Nova pauta**, selecione Blog, Instagram ou ambos e escolha **Criar com IA** ou **Escrever manualmente**. A escrita manual dispensa chave e conexões. O [guia de primeiro acesso](docs/first-access.md) explica os editores e a configuração opcional dos serviços.
+Ao abrir o aplicativo, escolha uma pasta vazia para o workspace. Em **Nova pauta**, selecione Blog, Instagram ou ambos e escolha **Criar com IA** ou **Escrever manualmente**. A escrita manual dispensa chave e conexões. O [guia de primeiro acesso](docs/first-access.md) explica os editores e a configuração opcional dos serviços.
 
 Para desenvolver, use Node.js 22 ou superior:
 
@@ -83,7 +83,7 @@ npm run package:win
 npm run package:mac
 ```
 
-O build Windows portátil inclui o runtime. O build macOS deve ser gerado e validado em macOS; assinatura e notarização ainda não estão configuradas. Os executáveis da beta não são assinados. A CI verifica núcleo, build e empacotamento em Windows e macOS, com artefatos temporários.
+O build Windows portátil inclui o runtime. O build macOS deve ser gerado e validado em macOS; assinatura e notarização ainda não estão configuradas. Os executáveis da beta não são assinados. A CI verifica núcleo e build em cada push; a [rotina de release](docs/releasing.md) testa, empacota e publica os três sistemas após acionamento explícito.
 
 ## Decisões e próximos passos
 

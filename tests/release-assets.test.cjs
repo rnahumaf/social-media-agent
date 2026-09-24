@@ -35,14 +35,15 @@ test("release bundle requires all three packages and records their actual hashes
   const intel = `Social.Media.Agent-${version}-mac.zip`;
   const hashes = [
     writePackage(dir, `Social Media Agent ${version}.exe`, "MZ"),
-    writePackage(dir, arm, "PK"),
-    writePackage(dir, intel, "PK"),
+    writePackage(dir, `Social Media Agent-${version}-arm64-mac.zip`, "PK"),
+    writePackage(dir, `Social Media Agent-${version}-mac.zip`, "PK"),
   ];
 
   const result = await verifyReleaseAssets(dir);
 
   assert.deepEqual(result.files, [windows, arm, intel, "SHA256SUMS.txt"]);
-  assert.ok(fs.existsSync(path.join(dir, windows)));
+  for (const name of [windows, arm, intel])
+    assert.ok(fs.existsSync(path.join(dir, name)));
   assert.equal(
     fs.readFileSync(path.join(dir, "SHA256SUMS.txt"), "utf8"),
     [windows, arm, intel]
@@ -55,10 +56,10 @@ test("release bundle requires all three packages and records their actual hashes
 test("release bundle rejects missing and invalid packages before publication", async (t) => {
   const dir = fixture(t);
   writePackage(dir, `Social Media Agent ${version}.exe`, "MZ");
-  writePackage(dir, `Social.Media.Agent-${version}-arm64-mac.zip`, "PK");
+  writePackage(dir, `Social Media Agent-${version}-arm64-mac.zip`, "PK");
   await assert.rejects(verifyReleaseAssets(dir), /Pacotes inesperados/);
 
-  writePackage(dir, `Social.Media.Agent-${version}-mac.zip`, "NO");
+  writePackage(dir, `Social Media Agent-${version}-mac.zip`, "NO");
   await assert.rejects(verifyReleaseAssets(dir), /Formato inesperado/);
   assert.equal(fs.existsSync(path.join(dir, "SHA256SUMS.txt")), false);
 });

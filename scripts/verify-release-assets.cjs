@@ -23,11 +23,19 @@ async function sha256(file) {
 async function verifyReleaseAssets(directory) {
   const rawWindows = `Social Media Agent ${version}.exe`;
   const windows = `Social.Media.Agent.${version}.exe`;
+  const rawArm = `Social Media Agent-${version}-arm64-mac.zip`;
   const arm = `Social.Media.Agent-${version}-arm64-mac.zip`;
+  const rawIntel = `Social Media Agent-${version}-mac.zip`;
   const intel = `Social.Media.Agent-${version}-mac.zip`;
   const entries = fs.readdirSync(directory);
-  const windowsSource = entries.includes(rawWindows) ? rawWindows : windows;
-  const expected = [windowsSource, arm, intel];
+  const packages = [
+    [rawWindows, windows],
+    [rawArm, arm],
+    [rawIntel, intel],
+  ];
+  const expected = packages.map(([raw, canonical]) =>
+    entries.includes(raw) ? raw : canonical,
+  );
   const actual = entries.filter((name) => name !== "SHA256SUMS.txt");
   if (
     actual.length !== expected.length ||
@@ -53,11 +61,12 @@ async function verifyReleaseAssets(directory) {
       throw Error(`Formato inesperado do pacote: ${name}.`);
   }
 
-  if (windowsSource !== windows)
-    fs.renameSync(
-      path.join(directory, rawWindows),
-      path.join(directory, windows),
-    );
+  for (const [index, [, canonical]] of packages.entries())
+    if (expected[index] !== canonical)
+      fs.renameSync(
+        path.join(directory, expected[index]),
+        path.join(directory, canonical),
+      );
   const lines = [];
   for (const name of [windows, arm, intel])
     lines.push(`${await sha256(path.join(directory, name))}  ${name}`);

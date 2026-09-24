@@ -50,14 +50,15 @@ const wait = (delay, signal) =>
     signal?.addEventListener("abort", abort, { once: true });
   });
 async function response(url, options = {}, type = "json") {
+  const { timeoutMs = 90000, ...fetchOptions } = options;
   const attempts = 2;
   for (let attempt = 0; attempt < attempts; attempt++) {
     const result = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       redirect: "error",
-      signal: options.signal
-        ? AbortSignal.any([options.signal, AbortSignal.timeout(90000)])
-        : AbortSignal.timeout(90000),
+      signal: fetchOptions.signal
+        ? AbortSignal.any([fetchOptions.signal, AbortSignal.timeout(timeoutMs)])
+        : AbortSignal.timeout(timeoutMs),
     });
     if (result.ok) return result[type]();
     const delay = retryDelay(result);
@@ -117,6 +118,8 @@ async function complete({
   );
   const data = await request("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
+    // Respostas longas precisam de mais tempo; buscas curtas mantêm 90 s.
+    timeoutMs: Math.max(90000, Math.min(300000, maxTokens * 60)),
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
@@ -142,8 +145,8 @@ async function complete({
           }
         : {}),
       ...(responseFormat ? { response_format: responseFormat } : {}),
-      // Alguns modelos usam raciocínio obrigatório. O esforço baixo reserva
-      // tokens para a resposta final e o conteúdo interno não é retornado.
+      // Solicita esforço baixo. Tokens de raciocínio, mesmo ocultos,
+      // continuam contando no limite de saída quando usados.
       reasoning: { effort: "low", exclude: true },
       // Mantém o modelo escolhido e permite outro provedor desse mesmo modelo.
       provider: {

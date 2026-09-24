@@ -30,6 +30,32 @@ test("OpenRouter keeps the selected model and permits provider failover", async 
     global.fetch = original;
   }
 });
+test("OpenRouter gives longer editorial completions enough time to finish", async () => {
+  const originalFetch = global.fetch;
+  const originalTimeout = AbortSignal.timeout;
+  const durations = [];
+  AbortSignal.timeout = (ms) => {
+    durations.push(ms);
+    return new AbortController().signal;
+  };
+  global.fetch = async () =>
+    Response.json({
+      choices: [{ message: { content: "Resposta" }, finish_reason: "stop" }],
+    });
+  try {
+    await complete({
+      key: "fixture",
+      model: "fixture/model",
+      system: "Teste",
+      messages: [],
+      maxTokens: 7500,
+    });
+    assert.deepEqual(durations, [300000]);
+  } finally {
+    global.fetch = originalFetch;
+    AbortSignal.timeout = originalTimeout;
+  }
+});
 test("OpenRouter requires a provider that honors a requested JSON schema", async () => {
   const original = global.fetch;
   const responseFormat = {

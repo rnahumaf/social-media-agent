@@ -87,12 +87,13 @@ function prepareContext(value) {
     copy.previousAttempt = clip(copy.previousAttempt, 2000);
   return JSON.stringify(copy);
 }
+// 7500 tokens de saída preservam os 24000 de entrada na janela conservadora de 32768.
 const outputLimits = {
   search: 800,
-  researcher: 3000,
+  researcher: 7500,
   writer: 6000,
   social: 4000,
-  reviewer: 3000,
+  reviewer: 7500,
   chat: 2000,
   rewrite: 6000,
 };

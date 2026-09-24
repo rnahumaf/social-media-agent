@@ -89,13 +89,13 @@ test("blog-only flow recovers evidence and review limits without pausing or losi
     calls
       .filter((call) => call.model === "researcher")
       .map((call) => call.maxTokens),
-    [800, 3000, 9000],
+    [800, 7500, 9000],
   );
   assert.deepEqual(
     calls
       .filter((call) => call.model === "reviewer")
       .map((call) => call.maxTokens),
-    [3000, 9000],
+    [7500, 9000],
   );
   assert.equal(
     p.sessions[0].artifacts.responses.filter(
@@ -137,7 +137,7 @@ test("persistent length pauses with saved attempts and resumes at the maximum li
   assert.equal(current(p), undefined);
   completed = true;
   await run(w, p.id, { resume: true });
-  assert.deepEqual(limits.slice(0, 3), [3000, 9000, 9000]);
+  assert.deepEqual(limits.slice(0, 3), [7500, 9000, 9000]);
   assert.equal(p.status, "review");
 });
 

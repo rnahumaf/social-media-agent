@@ -93,13 +93,25 @@ export const preview: API = {
     state.memory = knowledge.general;
     return save();
   },
-  run: async ({ id }) => {
+  run: async ({ id, mode = "research", targets }) => {
     const p = state.projects.find((p) => p.id === id)!;
+    const selected = targets || p.channels || ["blog", "instagram"];
+    const previous = p.revisions.at(-1);
+    if (mode === "adapt" && !previous?.article.trim())
+      throw Error("Escreva ou gere um artigo antes de adaptar o material.");
+    const roles = [
+      ...(mode === "adapt" ? [] : ["researcher"]),
+      ...(selected.includes("blog") ? ["writer"] : []),
+      ...(selected.includes("instagram") ? ["social"] : []),
+      "reviewer",
+    ];
     const sessionId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
     p.sessions ||= [];
     p.sessions.push({
       id: sessionId,
+      mode,
+      channels: selected,
       status: "completed",
       cursor: "done",
       startedAt: timestamp,
@@ -113,15 +125,19 @@ export const preview: API = {
           kind: "status",
           title: "Execução iniciada",
         },
-        {
-          id: crypto.randomUUID(),
-          at: timestamp,
-          kind: "tool_result",
-          role: "researcher",
-          title: "Fonte de demonstração preparada",
-          detail: "Nenhuma consulta externa foi executada.",
-        },
-        ...["researcher", "writer", "social", "reviewer"].map((role) => ({
+        ...(mode === "adapt"
+          ? []
+          : [
+              {
+                id: crypto.randomUUID(),
+                at: timestamp,
+                kind: "tool_result" as const,
+                role: "researcher",
+                title: "Fonte de demonstração preparada",
+                detail: "Nenhuma consulta externa foi executada.",
+              },
+            ]),
+        ...roles.map((role) => ({
           id: crypto.randomUUID(),
           at: timestamp,
           kind: "output" as const,
@@ -138,43 +154,55 @@ export const preview: API = {
         })),
       ],
     });
-    p.sources = [
-      {
-        title: "Exemplo fictício — sem evidência científica",
-        pmid: "DEMO",
-        abstract:
-          "O navegador demonstra a interface. A pesquisa real está no aplicativo desktop.",
-        access: "demo",
-        url: "",
-      },
-    ];
-    p.runs = ["researcher", "writer", "social", "reviewer"].map((role) => ({
-      id: crypto.randomUUID(),
-      sessionId,
-      role,
-      model: "Demonstração local",
-      status: "completed",
-    }));
+    p.sources =
+      mode === "adapt"
+        ? previous?.sources || []
+        : [
+            {
+              title: "Exemplo fictício — sem evidência científica",
+              pmid: "DEMO",
+              abstract:
+                "O navegador demonstra a interface. A pesquisa real está no aplicativo desktop.",
+              access: "demo",
+              url: "",
+            },
+          ];
+    p.runs.push(
+      ...roles.map((role) => ({
+        id: crypto.randomUUID(),
+        sessionId,
+        role,
+        model: "Demonstração local",
+        status: "completed",
+      })),
+    );
     p.revisions.push({
+      ...previous,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      article: `# ${p.title}\n\n> Demonstração editorial. Não contém evidências clínicas.\n\n## Uma pergunta bem formulada\n\nA produção começa com a definição do público, da pergunta e das fontes que precisam ser consultadas.\n\n## Das evidências à conversa\n\nO artigo mantém as referências e as limitações. Os cards apresentam uma ideia de cada vez.\n\n## Antes de publicar\n\nRevise os materiais e confirme a versão final.`,
-      caption:
-        "Uma boa conversa começa com fontes e contexto. Exemplo de demonstração. #Ciência #Comunicação",
-      cards: [
-        {
-          title: p.title,
-          body: "Uma pauta começa com uma boa pergunta. Exemplo editorial de demonstração.",
-        },
-        {
-          title: "O contexto importa",
-          body: "Preserve as limitações das fontes e explique o que elas permitem concluir.",
-        },
-        {
-          title: "Uma revisão humana",
-          body: "Confira o artigo e cada card antes de aprovar o material.",
-        },
-      ],
+      sources: p.sources,
+      article: selected.includes("blog")
+        ? `# ${p.title}\n\n> Demonstração editorial. Não contém evidências clínicas.\n\n## Uma pergunta bem formulada\n\nA produção começa com a definição do público, da pergunta e das fontes que precisam ser consultadas.\n\n## Das evidências à conversa\n\nO artigo mantém as referências e as limitações. Os cards apresentam uma ideia de cada vez.\n\n## Antes de publicar\n\nRevise os materiais e confirme a versão final.`
+        : previous?.article || "",
+      caption: selected.includes("instagram")
+        ? "Uma boa conversa começa com fontes e contexto. Exemplo de demonstração. #Ciência #Comunicação"
+        : previous?.caption || "",
+      cards: selected.includes("instagram")
+        ? [
+            {
+              title: p.title,
+              body: "Uma pauta começa com uma boa pergunta. Exemplo editorial de demonstração.",
+            },
+            {
+              title: "O contexto importa",
+              body: "Preserve as limitações das fontes e explique o que elas permitem concluir.",
+            },
+            {
+              title: "Uma revisão humana",
+              body: "Confira o artigo e cada card antes de aprovar o material.",
+            },
+          ]
+        : previous?.cards || [],
     });
     p.messages.push({
       role: "assistant",

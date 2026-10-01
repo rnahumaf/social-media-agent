@@ -1,6 +1,6 @@
 {
   "name": "social-media-agent",
-  "version": "0.1.0-beta.8",
+  "version": "0.1.0-beta.9",
   "private": true,
   "description": "Estúdio editorial local com agentes e aprovação humana",
   "author": "Rodrigo Nahum",
@@ -14,14 +14,15 @@
     "start": "npm run build && electron .",
     "test": "node --test tests/*.test.cjs",
     "test:desktop": "electron tests/desktop-smoke.cjs",
-    "test:editorial-desktop": "electron tests/editorial-desktop.cjs && electron tests/p0-desktop.cjs && electron tests/p1-desktop.cjs",
+    "test:editorial-desktop": "electron tests/editorial-desktop.cjs && electron tests/p0-desktop.cjs && electron tests/p1-desktop.cjs && electron tests/staged-editorial-desktop.cjs",
     "test:rich-text-desktop": "electron tests/card-rich-text-desktop.cjs",
     "test:timeline-desktop": "electron tests/run-timeline-desktop.cjs",
     "test:chat-desktop": "node tests/run-chat-limits-desktop.cjs",
     "package:win": "npm run build && install-electron && electron-builder --win portable --publish never",
     "package:mac": "npm run build && install-electron && electron-builder --mac zip --publish never",
     "test:p0-desktop": "electron tests/p0-desktop.cjs",
-    "test:p1-desktop": "electron tests/p1-desktop.cjs"
+    "test:p1-desktop": "electron tests/p1-desktop.cjs",
+    "test:staged-desktop": "electron tests/staged-editorial-desktop.cjs"
   },
   "build": {
     "electronDist": "node_modules/electron/dist",

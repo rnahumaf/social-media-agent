@@ -294,12 +294,20 @@ app.whenReady().then(async () => {
     await dom(
       `document.querySelector('[role=dialog]')?.getAttribute('aria-label')==='Gerar conteúdo'`,
     );
-    // Existing article defaults to reuse, and only Instagram is requested.
-    await evaluate(
-      `(()=>{const labels=[...document.querySelectorAll('[role=dialog] label')];labels.find(l=>l.textContent==='Blog').querySelector('input').click()})()`,
+    // Existing article defaults to an Instagram-only adaptation.
+    assert.equal(
+      await evaluate(
+        `document.querySelector('input[name="generation-target"]:checked').parentElement.textContent`,
+      ),
+      "Instagram",
+    );
+    await close();
+    await click("Adaptar para Instagram");
+    await dom(
+      `document.querySelector('[role=dialog]')?.getAttribute('aria-label')==='Adaptar para Instagram'`,
     );
     await capture("p1-adapt-dialog");
-    await click("Adaptar material");
+    await click("Gerar carrossel e legenda");
     await wait(
       async () =>
         (await call("state")).projects[0].sessions?.at(-1)?.status ===
@@ -309,6 +317,14 @@ app.whenReady().then(async () => {
     await dom(`!document.querySelector('.operation-status')`);
     assert.equal(requests.length, 2);
     assert.equal(requests[0].response_format.type, "json_schema");
+    assert.equal(
+      JSON.parse(requests[0].messages.at(-1).content).article,
+      draft,
+    );
+    assert.equal(
+      JSON.parse(requests[1].messages.at(-1).content).sourceArticle,
+      draft,
+    );
     assert.ok(
       requests.every((body) =>
         body.messages.some((m) =>
@@ -320,7 +336,10 @@ app.whenReady().then(async () => {
     assert.equal(current(state.projects[0]).article, draft);
     assert.equal(current(state.projects[0]).sources[0].id, "source");
     assert.equal(state.projects[0].sessions.at(-1).mode, "adapt");
-    await click("Instagram");
+    // The completed adaptation opens Instagram automatically.
+    await dom(
+      `document.querySelector('[role=tab][aria-selected=true]')?.textContent==='Instagram'`,
+    );
     await dom(
       `document.querySelectorAll('.card-thumbnails img').length===2 && !!document.querySelector('.selected-card-preview img')`,
     );

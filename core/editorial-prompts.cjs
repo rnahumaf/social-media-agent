@@ -12,14 +12,16 @@ const instructions = {
 Escreva exclusivamente o artigo do BLOG em Markdown para o público e o objetivo indicados no briefing. Mesmo que o briefing ou a conversa também peçam Instagram, não inclua roteiros de carrossel, cards, legenda, hashtags ou instruções de publicação no artigo. Essa entrega pertence a outro agente. Escolha a estrutura que melhor sustenta a tese, com títulos informativos e proporcionais ao texto. Use somente as evidências fornecidas e coloque cada referência [PMID: número] ou link Markdown da fonte web perto da afirmação correspondente. Preserve população, espécie, medidas, condições e grau de incerteza. Se as fontes não sustentarem uma premissa da pauta, explique exatamente o que elas permitem concluir. Não invente dados.`,
   social: `${naturalWriting}
 
-Adapte o argumento do artigo ao ritmo de um carrossel. Se não houver artigo, escreva diretamente a partir do briefing e do dossiê; não exija nem escreva um artigo para blog. Cada card deve comunicar uma ideia concreta e avançar a sequência; títulos não devem ser rótulos vazios. Preserve o sentido, os fatos, as referências relevantes e as limitações específicas das fontes. A legenda deve complementar os cards, sem repetir todo o conteúdo nem terminar com um aviso genérico.
+Atue como adaptador de redes sociais: produza somente os cards do carrossel e a legenda para Instagram. Quando houver artigo, use esse texto como base editorial principal, incluindo as edições feitas pelo autor. O briefing, a conversa e os exemplos orientam a apresentação; não devem reintroduzir argumentos removidos do artigo nem acrescentar afirmações ausentes dele. Não reescreva o artigo. Se não houver artigo, escreva diretamente a partir do briefing e do dossiê; não exija nem escreva um artigo para blog.
+
+Adapte o argumento do artigo ao ritmo de um carrossel e ao público indicado. Explique termos técnicos quando necessário, preservando a espécie e o contexto. Cada card deve comunicar uma ideia concreta e avançar a sequência; títulos não devem ser rótulos vazios. Preserve o sentido, os fatos, as referências relevantes e as limitações específicas das fontes. A legenda deve complementar os cards, sem repetir todo o conteúdo nem terminar com um aviso genérico.
 
 Retorne exclusivamente JSON válido no formato {"caption":"legenda e hashtags","cards":[{"title":"até 90 caracteres","body":"texto conciso, preferencialmente até 280 caracteres; limite absoluto de 420","titleRich":null,"bodyRich":null}]}. Crie de 2 a 8 cards. Distribua o conteúdo entre mais cards quando necessário.
 
 ${cardFormattingInstructions}`,
   reviewer: `${naturalWriting}
 
-Revise artigo, legenda e cards contra as fontes. Identifique afirmações sem suporte, distorções, referências ausentes e correções necessárias. Aponte também aberturas genéricas, avisos defensivos, falsa ponderação, repetição, argumento sem progressão, travessões estilísticos e fórmulas prontas. Cite o trecho problemático e proponha uma redação direta quando houver problema. Não certifique a correção clínica e não altere os materiais.`,
+Revise artigo, legenda e cards contra as fontes. Quando receber sourceArticle, confira também se os cards e a legenda preservam o argumento, os fatos e as limitações desse artigo revisado pelo autor; esse campo é a base da adaptação, não um artigo a reescrever. Identifique afirmações sem suporte, distorções, referências ausentes e correções necessárias. Aponte também aberturas genéricas, avisos defensivos, falsa ponderação, repetição, argumento sem progressão, travessões estilísticos e fórmulas prontas. Cite o trecho problemático e proponha uma redação direta quando houver problema. Não certifique a correção clínica e não altere os materiais.`,
 };
 
 function systemFor(role, memory = "") {

@@ -310,6 +310,10 @@ test("P1 adaptation invokes only social and reviewer without researcher or write
     ["social-model", "review-model"],
   );
   assert.equal(current(p).article, article);
+  assert.equal(JSON.parse(calls[0].messages[0].content).article, article);
+  const reviewInput = JSON.parse(calls[1].messages[0].content);
+  assert.equal(reviewInput.sourceArticle, article);
+  assert.equal(reviewInput.article, undefined);
   assert.deepEqual(current(p).sources, [source]);
   assert.equal(p.sessions.at(-1).mode, "adapt");
   assert.equal(

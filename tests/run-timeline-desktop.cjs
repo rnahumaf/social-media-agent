@@ -162,8 +162,8 @@ app.whenReady().then(async () => {
     await wait(() => evaluate("!!document.querySelector('[role=tablist]')"));
     await click("Criar com IA");
     await click("Pesquisar e criar");
-    for (const key of ["search", "researcher", "writer", "social"]) {
-      await checkStage(key);
+    for (const key of ["search", "researcher", "writer", "reviewer"]) {
+      await checkStage(key, 4);
       if (key === "writer") {
         await capture("timeline-running-1440", 1440, 940);
         await capture("timeline-running-780", 780, 640);
@@ -172,6 +172,24 @@ app.whenReady().then(async () => {
       release();
     }
     await wait(() =>
+      evaluate(
+        "!!document.querySelector('.run-activity.completed') && !document.querySelector('.operation-status')",
+      ),
+    );
+    if (!baseline)
+      assert.equal(
+        await evaluate(
+          "document.querySelectorAll('.run-timeline .complete').length",
+        ),
+        4,
+      );
+    // Human review separates blog production from social adaptation.
+    await click("Adaptar para Instagram");
+    stage = "";
+    await click("Gerar carrossel e legenda");
+    await checkStage("social", 2);
+    release();
+    await wait(() =>
       evaluate("!!document.querySelector('.run-activity.paused')"),
     );
     if (!baseline) {
@@ -179,7 +197,7 @@ app.whenReady().then(async () => {
         await evaluate(
           "document.querySelectorAll('.run-timeline .complete').length",
         ),
-        3,
+        0,
       );
       assert.equal(
         await evaluate(
@@ -195,9 +213,9 @@ app.whenReady().then(async () => {
     await capture("timeline-paused-780", 780, 640);
     stage = "";
     await click("Tentar novamente");
-    await checkStage("social");
+    await checkStage("social", 2);
     release();
-    await checkStage("reviewer");
+    await checkStage("reviewer", 2);
     release();
     await wait(() =>
       evaluate("!!document.querySelector('.run-activity.completed')"),
@@ -207,16 +225,13 @@ app.whenReady().then(async () => {
         await evaluate(
           "document.querySelectorAll('.run-timeline .complete').length",
         ),
-        5,
+        2,
       );
     await capture("timeline-completed-1440", 1440, 940);
     // Adaptation has only the selected channel and review; cancellation stops animation.
-    await click("Gerar com IA");
-    await evaluate(
-      "[...document.querySelectorAll('[role=dialog] label')].find(l=>l.textContent.trim()==='Blog').querySelector('input').click()",
-    );
+    await click("Adaptar para Instagram");
     stage = "";
-    await click("Adaptar material");
+    await click("Gerar carrossel e legenda");
     await checkStage("social", 2);
     await evaluate(
       "document.querySelector('[data-testid=cancel-operation]').click()",

@@ -77,6 +77,7 @@ npm test
 npm run build
 npx electron tests/desktop-smoke.cjs
 npm run test:editorial-desktop
+npm run test:staged-desktop
 npm run test:chat-desktop
 npm run package:win
 # Executar em macOS:
@@ -98,6 +99,8 @@ A formulação de buscas usa termos livres e operadores do PubMed conforme a [do
 
 ## Fluxo P1
 
-A produção usa rascunhos automáticos e revisões separadas. Os rascunhos são preservados na pasta portável; a navegação e o fechamento normal aguardam o salvamento. Fontes, conversa, histórico e exportação ficam em **Ferramentas da pauta**. **Publicar** prepara a revisão e oferece aprovação e envio no mesmo fluxo. **Gerar com IA** permite adaptar um artigo salvo sem repetir pesquisa.
+A produção usa rascunhos automáticos e revisões separadas. Os rascunhos são preservados na pasta portável; a navegação e o fechamento normal aguardam o salvamento. Fontes, conversa, histórico e exportação ficam em **Ferramentas da pauta**. **Publicar** prepara a revisão e oferece aprovação e envio no mesmo fluxo.
+
+Nas pautas com Blog e Instagram, **Criar com IA** começa somente pelo artigo. Depois de revisar e editar o texto, use **Adaptar para Instagram** e **Gerar carrossel e legenda**. O aplicativo salva as edições antes de chamar o agente social, mantém o artigo e suas fontes e abre a aba Instagram ao concluir. A adaptação dispensa nova pesquisa; a revisão com IA também confere a fidelidade ao artigo usado. Uma nova adaptação substitui os cards e a legenda atuais e preserva a versão anterior no histórico. **Gerar com IA** permite escolher uma etapa por vez; pautas apenas de Instagram continuam podendo partir do briefing.
 
 Configurações reúne um modelo padrão (ou modelos por função), voz e destinos. Os cards compartilham cache de renderização e exibem erros individualmente. Consulte [a documentação P1](docs/p1-validation.md) para comportamento, testes e limites.

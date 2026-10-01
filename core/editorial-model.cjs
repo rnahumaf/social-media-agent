@@ -98,7 +98,12 @@ function scopedContext(p, role, artifacts = {}, previous) {
         ? { article: artifacts.article || previous?.article || "" }
         : {}),
       ...(channels(p).includes("instagram")
-        ? { social: artifacts.social }
+        ? {
+            social: artifacts.social,
+            ...(!channels(p).includes("blog") && artifacts.article
+              ? { sourceArticle: artifacts.article }
+              : {}),
+          }
         : {}),
     };
   return base;

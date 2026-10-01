@@ -214,7 +214,9 @@ export default function App() {
   const [renderedRevision, setRenderedRevision] = useState("");
   const [message, setMessage] = useState(""),
     [steer, setSteer] = useState("");
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState<"content" | "instagram" | null>(
+    null,
+  );
   const [rewriteTarget, setRewriteTarget] = useState<{
     target: RewriteRequest["target"];
     index?: number;
@@ -457,14 +459,21 @@ export default function App() {
       return;
     }
     if (!resume && !(await save())) return;
-    setGenerating(false);
-    await act("run", {
+    setGenerating(null);
+    const result = await act("run", {
       id: p.id,
       resume,
       mode,
       targets,
       instruction: resume ? steer : instruction,
     });
+    if (result) {
+      const completedTargets: Channel[] =
+        result.projects
+          .find((project: Project) => project.id === p.id)
+          ?.sessions?.at(-1)?.channels || targets;
+      if (completedTargets.length === 1) setTab(completedTargets[0]);
+    }
   }
   async function openPublish() {
     if (!(await save())) return;
@@ -725,13 +734,23 @@ export default function App() {
                 <div className="actions">
                   <button
                     disabled={busy || !!version}
-                    onClick={() => setGenerating(true)}
+                    onClick={() => setGenerating("content")}
                   >
                     <Play size={16} />
                     {r?.article || r?.cards.length
                       ? "Gerar com IA"
                       : "Criar com IA"}
                   </button>
+                  {selected.includes("blog") &&
+                    selected.includes("instagram") && (
+                      <button
+                        disabled={busy || !!version || !draft?.article.trim()}
+                        onClick={() => setGenerating("instagram")}
+                      >
+                        <Images size={16} />
+                        Adaptar para Instagram
+                      </button>
+                    )}
                   <button
                     className="primary"
                     disabled={
@@ -838,6 +857,13 @@ export default function App() {
                         onChange={(article) => change({ ...draft!, article })}
                       />
                       <div className="content-actions">
+                        {selected.includes("instagram") && (
+                          <p>
+                            Revise o artigo e clique em Adaptar para Instagram
+                            para criar o carrossel e a legenda a partir deste
+                            texto.
+                          </p>
+                        )}
                         <button
                           disabled={
                             readOnly || busy || !displayed.article.trim()
@@ -921,8 +947,10 @@ export default function App() {
           <GenerationDialog
             project={p}
             canAdapt={!!draft?.article.trim()}
+            instagramOnly={generating === "instagram"}
+            hasSocial={!!draft?.caption.trim() || !!draft?.cards.length}
             busy={busy}
-            onClose={() => setGenerating(false)}
+            onClose={() => setGenerating(null)}
             submit={(mode, targets, instruction) =>
               generate(false, mode, targets, instruction)
             }
@@ -1248,12 +1276,16 @@ export default function App() {
 function GenerationDialog({
   project,
   canAdapt,
+  instagramOnly,
+  hasSocial,
   busy,
   onClose,
   submit,
 }: {
   project: Project;
   canAdapt: boolean;
+  instagramOnly: boolean;
+  hasSocial: boolean;
   busy: boolean;
   onClose: () => void;
   submit: (
@@ -1263,56 +1295,81 @@ function GenerationDialog({
   ) => Promise<void>;
 }) {
   const selected = channelsOf(project) as Channel[];
-  const [targets, setTargets] = useState<Channel[]>(selected);
+  const [target, setTarget] = useState<Channel>(
+    instagramOnly || (canAdapt && selected.includes("instagram"))
+      ? "instagram"
+      : selected.includes("blog")
+        ? "blog"
+        : "instagram",
+  );
   const [mode, setMode] = useState<"research" | "adapt">(
     canAdapt ? "adapt" : "research",
   );
   const [instruction, setInstruction] = useState("");
   return (
-    <Modal title="Gerar conteúdo" onClose={onClose}>
+    <Modal
+      title={instagramOnly ? "Adaptar para Instagram" : "Gerar conteúdo"}
+      onClose={onClose}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void submit(mode, targets, instruction);
+          void submit(mode, [target], instruction);
         }}
       >
-        {canAdapt && (
-          <label>
-            Operação
-            <select
-              aria-label="Operação de geração"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as typeof mode)}
-            >
-              <option value="adapt">
-                Adaptar artigo salvo · sem nova pesquisa
-              </option>
-              <option value="research">Pesquisar e criar conteúdo novo</option>
-            </select>
-          </label>
-        )}
-        {selected.length > 1 && (
+        {canAdapt &&
+          !instagramOnly &&
+          !(target === "instagram" && selected.includes("blog")) && (
+            <label>
+              Operação
+              <select
+                aria-label="Operação de geração"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as typeof mode)}
+              >
+                <option value="adapt">
+                  Adaptar artigo salvo · sem nova pesquisa
+                </option>
+                <option value="research">
+                  Pesquisar e criar conteúdo novo
+                </option>
+              </select>
+            </label>
+          )}
+        {selected.length > 1 && !instagramOnly && (
           <fieldset>
-            <legend>Canais a gerar</legend>
+            <legend>Etapa a gerar</legend>
             <div className="choice-row">
               {selected.map((channel) => (
                 <label className="check" key={channel}>
                   <input
-                    type="checkbox"
-                    checked={targets.includes(channel)}
-                    onChange={(e) =>
-                      setTargets(
-                        e.target.checked
-                          ? [...targets, channel]
-                          : targets.filter((c) => c !== channel),
-                      )
-                    }
+                    type="radio"
+                    name="generation-target"
+                    checked={target === channel}
+                    disabled={channel === "instagram" && !canAdapt}
+                    onChange={() => {
+                      setTarget(channel);
+                      setMode(canAdapt ? "adapt" : "research");
+                    }}
                   />
                   {channel === "blog" ? "Blog" : "Instagram"}
                 </label>
               ))}
             </div>
           </fieldset>
+        )}
+        <p>
+          {target === "instagram" && mode === "adapt"
+            ? "O agente social usará o artigo atual, incluindo suas edições, para criar os cards e a legenda. O artigo será preservado, sem nova pesquisa."
+            : target === "blog" && selected.includes("instagram")
+              ? "Esta etapa gera somente o artigo. Revise e edite o texto antes de usar Adaptar para Instagram."
+              : "Esta etapa gera o conteúdo do canal selecionado."}
+        </p>
+        {target === "instagram" && hasSocial && (
+          <p>
+            A nova geração substituirá os cards e a legenda atuais. A versão
+            anterior continuará no histórico.
+          </p>
         )}
         <label>
           Orientação desta geração
@@ -1323,8 +1380,12 @@ function GenerationDialog({
             placeholder="Opcional"
           />
         </label>
-        <button className="primary" disabled={busy || !targets.length}>
-          {mode === "adapt" ? "Adaptar material" : "Pesquisar e criar"}
+        <button className="primary" disabled={busy}>
+          {target === "instagram" && mode === "adapt"
+            ? "Gerar carrossel e legenda"
+            : mode === "adapt"
+              ? "Adaptar material"
+              : "Pesquisar e criar"}
         </button>
       </form>
     </Modal>

@@ -27,21 +27,17 @@ test("redator recebe por padrão um contrato completo de escrita natural", () =>
 });
 
 test("adaptação social e revisão preservam o mesmo padrão editorial", () => {
-  assert.ok(
-    instructions.social.startsWith(
-      naturalWriting,
-    ),
-  );
-  assert.ok(
-    instructions.reviewer.startsWith(
-      naturalWriting,
-    ),
-  );
+  assert.ok(instructions.social.startsWith(naturalWriting));
+  assert.ok(instructions.reviewer.startsWith(naturalWriting));
   assert.match(
     instructions.social,
     /Cada card deve comunicar uma ideia concreta/,
   );
   assert.match(instructions.social, /sem repetir todo o conteúdo/);
+  assert.match(instructions.social, /base editorial principal/);
+  assert.match(instructions.social, /edições feitas pelo autor/);
+  assert.match(instructions.social, /Não reescreva o artigo/);
+  assert.match(instructions.reviewer, /sourceArticle/);
   assert.match(instructions.reviewer, /falsa ponderação/);
   assert.match(instructions.reviewer, /proponha uma redação direta/);
   assert.match(chatInstruction, /Responda à conversa com clareza/);

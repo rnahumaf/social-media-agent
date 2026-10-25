@@ -1,6 +1,6 @@
 {
   "name": "social-media-agent",
-  "version": "0.1.0-beta.9",
+  "version": "0.1.0-beta.10",
   "private": true,
   "description": "Estúdio editorial local com agentes e aprovação humana",
   "author": "Rodrigo Nahum",
@@ -41,7 +41,11 @@
     "mac": {
       "target": "zip",
       "category": "public.app-category.productivity",
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "identity": "-",
+      "hardenedRuntime": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
     },
     "directories": {
       "output": "release"
@@ -54,21 +58,21 @@
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "dompurify": "^3.4.16",
+    "dompurify": "3.4.17",
     "fast-xml-parser": "^5.2.5",
     "lucide-react": "^0.468.0",
     "marked": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sharp": "^0.35.4",
+    "sharp": "0.35.5",
     "sql.js": "^1.13.0",
-    "zod": "^3.24.0"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "electron": "43.7.0",
+    "electron": "43.8.3",
     "electron-builder": "^26.0.0",
     "prettier": "^3.9.6",
     "typescript": "^5.7.0",

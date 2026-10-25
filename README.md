@@ -12,7 +12,7 @@ Baixe a versão mais recente na [página de versões](https://github.com/rnahuma
 | macOS 12 ou posterior com chip Apple M1 ou posterior | `Social.Media.Agent-<versão>-arm64-mac.zip` |
 | macOS 12 ou posterior com processador Intel          | `Social.Media.Agent-<versão>-mac.zip`       |
 
-No Windows, abra o `.exe` baixado. No macOS, consulte **Sobre Este Mac** para identificar o chip, descompacte o `.zip` correspondente e mova o aplicativo para **Aplicativos**. Como esta beta ainda não é assinada nem notarizada, na primeira abertura pressione Control enquanto clica no aplicativo, escolha **Abrir** e confirme. Se o macOS ainda bloquear a execução, abra **Ajustes do Sistema → Privacidade e Segurança** e use **Abrir Mesmo Assim**.
+No Windows, abra o `.exe` baixado. No macOS, descompacte o `.zip` correspondente ao chip e mova o aplicativo para **Aplicativos**. Os pacotes Mac usam assinatura ad hoc, sem certificado Developer ID ou notarização. Para avisos de desenvolvedor não identificado, depois de tentar abrir, use **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**, quando disponível. Se o aviso disser que o aplicativo está danificado ou contém malware, interrompa a abertura e registre o texto exato. Veja a [orientação da Apple](https://support.apple.com/en-us/102445) e as [notas da beta.10](docs/releases/0.1.0-beta.10.md).
 
 Ao abrir o aplicativo, escolha uma pasta vazia para o workspace. Em **Nova pauta**, selecione Blog, Instagram ou ambos e escolha **Criar com IA** ou **Escrever manualmente**. A escrita manual dispensa chave e conexões. O [guia de primeiro acesso](docs/first-access.md) explica os editores e a configuração opcional dos serviços.
 
@@ -84,7 +84,7 @@ npm run package:win
 npm run package:mac
 ```
 
-O build Windows portátil inclui o runtime. O build macOS deve ser gerado e validado em macOS; assinatura e notarização ainda não estão configuradas. Os executáveis da beta não são assinados. A CI verifica núcleo e build em cada push; a [rotina de release](docs/releasing.md) testa, empacota e publica os três sistemas após acionamento explícito.
+O build Windows portátil inclui o runtime. Os pacotes Mac são gerados nos runners ARM64 e Intel, com assinatura ad hoc do bundle final e hardened runtime. A CI verifica assinatura e arquitetura antes e depois de extrair o ZIP; executa aceites desktop e confere a interface, Sharp/JPEG, persistência e cofre no runtime empacotado. Ad hoc não fornece notarização ou identidade Apple. A [rotina de release](docs/releasing.md) publica os três sistemas após acionamento explícito.
 
 ## Decisões e próximos passos
 
